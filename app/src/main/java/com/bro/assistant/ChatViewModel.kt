@@ -37,6 +37,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     private val chatStore = ChatStore(app)
     private val stored = mutableListOf<StoredMessage>()
+    private var currentId = 0L
+    val history = mutableStateListOf<Conversation>()
     val messages = mutableStateListOf<ChatMessage>()
 
     var state by mutableStateOf(BroState.IDLE)
@@ -70,22 +72,63 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     )
 
     init {
-        // restore the saved chat instead of starting a new one every time
-        val saved = chatStore.load()
-        if (saved.isEmpty()) {
-            addMessage(false, "BRO is ready. Type a command or tap the mic.")
+        // reopen the last conversation instead of starting a new one every time
+        val last = chatStore.get(chatStore.currentId)
+        if (last != null && last.messages.isNotEmpty()) {
+            currentId = last.id
+            loadConversation(last)
         } else {
-            stored.addAll(saved)
-            saved.forEach { messages.add(ChatMessage(nextId++, it.role == "user", it.text)) }
-            // give the assistant its context back
-            saved.takeLast(10).forEach { if (it.role == "user") memory.addUser(it.text) else memory.addBro(it.text) }
+            currentId = System.currentTimeMillis()
+            chatStore.currentId = currentId
+            addMessage(false, "BRO is ready. Type a command or tap the mic.")
         }
+        refreshHistory()
+    }
+
+    private fun loadConversation(c: Conversation) {
+        messages.clear()
+        stored.clear()
+        stored.addAll(c.messages)
+        c.messages.forEach { messages.add(ChatMessage(nextId++, it.role == "user", it.text)) }
+        memory.reset()
+        c.messages.takeLast(10).forEach { if (it.role == "user") memory.addUser(it.text) else memory.addBro(it.text) }
+    }
+
+    fun refreshHistory() {
+        history.clear()
+        history.addAll(chatStore.all().sortedByDescending { it.updated })
+    }
+
+    fun openConversation(id: Long) {
+        if (busy) { addMessage(false, "Wait for the current task to finish first."); return }
+        val c = chatStore.get(id) ?: return
+        tts.stop(); stt.stop()
+        currentId = c.id
+        chatStore.currentId = c.id
+        taskManager.steps.clear()
+        partialText = ""
+        state = BroState.IDLE
+        loadConversation(c)
+    }
+
+    fun deleteConversation(id: Long) {
+        chatStore.delete(id)
+        if (id == currentId) newConversation(force = true)
+        refreshHistory()
+    }
+
+    private fun saveCurrent() {
+        // only keep chats where the user actually said something
+        val firstUser = stored.firstOrNull { it.role == "user" } ?: return
+        val title = firstUser.text.trim().replace("\n", " ").take(40)
+        chatStore.put(Conversation(currentId, title, System.currentTimeMillis(), stored.toList()))
+        refreshHistory()
     }
 
     private fun addMessage(fromUser: Boolean, text: String) {
         messages.add(ChatMessage(nextId++, fromUser, text))
         stored.add(StoredMessage(if (fromUser) "user" else "bro", text))
-        chatStore.save(stored)
+        saveCurrent()
     }
 
     // ---------- voice ----------
@@ -224,8 +267,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     // ---------- misc ----------
 
-    fun newConversation() {
-        if (busy) {
+    fun newConversation(force: Boolean = false) {
+        if (busy && !force) {
             addMessage(false, "Wait for the current task to finish first.")
             return
         }
@@ -234,8 +277,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         memory.reset()
         messages.clear()
         taskManager.steps.clear()
-        chatStore.clear()
         stored.clear()
+        currentId = System.currentTimeMillis()
+        chatStore.currentId = currentId
         partialText = ""
         state = BroState.IDLE
         addMessage(false, "New conversation. I'm ready.")
