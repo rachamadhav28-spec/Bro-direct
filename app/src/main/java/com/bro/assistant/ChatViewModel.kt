@@ -35,6 +35,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val taskManager = TaskManager(app, memory, prefs)
     val tts = SpeechOutput(app, prefs)
 
+    private val chatStore = ChatStore(app)
+    private val stored = mutableListOf<StoredMessage>()
     val messages = mutableStateListOf<ChatMessage>()
 
     var state by mutableStateOf(BroState.IDLE)
@@ -68,11 +70,22 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     )
 
     init {
-        addMessage(false, "BRO is ready. Type a command or tap the mic.")
+        // restore the saved chat instead of starting a new one every time
+        val saved = chatStore.load()
+        if (saved.isEmpty()) {
+            addMessage(false, "BRO is ready. Type a command or tap the mic.")
+        } else {
+            stored.addAll(saved)
+            saved.forEach { messages.add(ChatMessage(nextId++, it.role == "user", it.text)) }
+            // give the assistant its context back
+            saved.takeLast(10).forEach { if (it.role == "user") memory.addUser(it.text) else memory.addBro(it.text) }
+        }
     }
 
     private fun addMessage(fromUser: Boolean, text: String) {
         messages.add(ChatMessage(nextId++, fromUser, text))
+        stored.add(StoredMessage(if (fromUser) "user" else "bro", text))
+        chatStore.save(stored)
     }
 
     // ---------- voice ----------
@@ -125,6 +138,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         addMessage(true, text)
         memory.addUser(text)
         state = BroState.THINKING
+
+        // direct system commands (volume, mute, ultra game mode): no Settings screen, no planner
+        val direct = SystemControls.handle(app, text) { later ->
+            reply(later, BroState.SUCCESS)
+        }
+        if (direct != null) {
+            reply(direct, BroState.SUCCESS)
+            return
+        }
 
         val plan = planner.plan(text)
         if (plan.error != null) {
@@ -212,6 +234,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         memory.reset()
         messages.clear()
         taskManager.steps.clear()
+        chatStore.clear()
+        stored.clear()
         partialText = ""
         state = BroState.IDLE
         addMessage(false, "New conversation. I'm ready.")
