@@ -11,6 +11,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.unit.dp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -21,6 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.view.WindowCompat
 import com.bro.assistant.ui.ChatScreen
+import com.bro.assistant.ui.HistoryScreen
 import com.bro.assistant.ui.SettingsScreen
 import com.bro.assistant.ui.theme.BroTheme
 
@@ -37,6 +42,7 @@ class MainActivity : ComponentActivity() {
 
     private var dialog by mutableStateOf<PermDialog?>(null)
     private var showSettings by mutableStateOf(false)
+    private var showHistory by mutableStateOf(false)
     private var tick by mutableStateOf(0)
 
     private var pendingPermission: String? = null
@@ -64,12 +70,27 @@ class MainActivity : ComponentActivity() {
                             onRequest = { requestPermission(it) },
                             onWakeToggle = { setWake(it) }
                         )
+                    } else if (showHistory) {
+                        BackHandler { showHistory = false }
+                        HistoryScreen(
+                            vm = vm,
+                            onBack = { showHistory = false },
+                            onOpen = { showHistory = false }
+                        )
                     } else {
                         ChatScreen(
                             vm = vm,
                             onMic = { onMicTapped() },
                             onOpenSettings = { showSettings = true }
                         )
+                        // History button (floating). Move it into ChatScreen's top bar if you prefer.
+                        androidx.compose.material3.TextButton(
+                            onClick = { vm.refreshHistory(); showHistory = true },
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .statusBarsPadding()
+                                .padding(start = 4.dp)
+                        ) { Text("History") }
                     }
 
                     val needed = vm.permissionNeeded
