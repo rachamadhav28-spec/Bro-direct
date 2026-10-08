@@ -87,9 +87,9 @@ class MainActivity : ComponentActivity() {
                         androidx.compose.material3.TextButton(
                             onClick = { vm.refreshHistory(); showHistory = true },
                             modifier = Modifier
-                                .align(Alignment.TopStart)
+                                .align(Alignment.TopCenter)
                                 .statusBarsPadding()
-                                .padding(start = 4.dp)
+                                .padding(top = 8.dp)
                         ) { Text("History") }
                     }
 
