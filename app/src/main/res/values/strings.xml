@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Bro</string>
+    <string name="accessibility_description">BRO uses this service to find buttons, type text and tap controls inside other apps when you ask it to. It only acts on your commands.</string>
+</resources>
