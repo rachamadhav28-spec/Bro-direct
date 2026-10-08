@@ -49,7 +49,12 @@ class GeminiClient(private val prefs: PreferencesStore) {
             val code = conn.responseCode
             val stream = if (code in 200..299) conn.inputStream else conn.errorStream
             val text = stream?.bufferedReader()?.use { it.readText() } ?: ""
-            if (code !in 200..299) throw AiException(code)
+            if (code !in 200..299) throw AiException(
+                code,
+                "model=${prefs.model}; " + (runCatching {
+                    JSONObject(text).getJSONObject("error").getString("message")
+                }.getOrDefault(text)).take(120)
+            )
 
             JSONObject(text)
                 .getJSONArray("candidates").getJSONObject(0)

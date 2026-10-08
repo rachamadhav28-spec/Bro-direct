@@ -5,7 +5,7 @@ import org.json.JSONException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 
-class AiException(val code: Int) : Exception("AI HTTP $code")
+class AiException(val code: Int, val detail: String = "") : Exception("AI HTTP $code")
 
 object ErrorHandler {
 
@@ -19,7 +19,7 @@ object ErrorHandler {
         is AiException -> when (t.code) {
             400 -> "The AI rejected the request. Check the model name and key in Settings."
             401, 403 -> "The AI key was rejected. Check your API key in Settings."
-            404 -> "The AI model name was not found. Check the model name in Settings."
+            404 -> "The AI model name was not found. Check the model name in Settings.${if (t.detail.isNotBlank()) " (${t.detail})" else ""}"
             429 -> "The AI is rate limited right now. Try again in a minute."
             else -> "The AI service returned error ${t.code}."
         }

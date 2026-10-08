@@ -29,6 +29,7 @@ class LocalCommandParser(private val memory: SessionMemory) {
         rx("^(?:send|message|text)\\s+(.+?)\\s*(?::|\\bsaying\\b|\\bthat\\b)\\s*(.+)$"),
         rx("^(?:send|message|text)\\s+(\\S+)\\s+[\"'\u201C\u2018](.+)[\"'\u201D\u2019]$")
     )
+    private val sayPattern = rx("^(?:say|send|tell)\\s+(.+?)\\s+to\\s+(.+)$")
     private val tellPattern = rx("^(?:tell|reply\\s+to)\\s+(him|her|them)\\s+(?:that\\s+)?(.+)$")
     private val replyPattern = rx("^reply\\s*[:,]?\\s*(.+)$")
     private val contactOnly = rx("^(?:message|text|chat\\s+with|open\\s+(?:the\\s+)?chat\\s+(?:of|with))\\s+(.+)$")
@@ -95,6 +96,12 @@ class LocalCommandParser(private val memory: SessionMemory) {
                 val contact = resolveContact(who) ?: return ask("Who do you mean?")
                 return Result(null, listOf(sendAction(contact, m.groupValues[2].trim())))
             }
+        }
+
+        sayPattern.find(c)?.let { m ->
+            val message = m.groupValues[1].trim().trim('"', '\'')
+            val contact = resolveContact(m.groupValues[2].trim()) ?: return ask("Who do you mean?")
+            return Result(null, listOf(sendAction(contact, message)))
         }
 
         tellPattern.find(c)?.let { m ->
