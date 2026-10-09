@@ -55,6 +55,7 @@ object AppTemplate {
             id("com.android.application") version "8.7.3" apply false
             id("org.jetbrains.kotlin.android") version "2.0.21" apply false
             id("org.jetbrains.kotlin.plugin.compose") version "2.0.21" apply false
+            id("com.google.devtools.ksp") version "2.0.21-1.0.28" apply false
         }
     """.trimIndent() + "\n"
 
@@ -81,6 +82,7 @@ object AppTemplate {
             id("com.android.application")
             id("org.jetbrains.kotlin.android")
             id("org.jetbrains.kotlin.plugin.compose")
+            id("com.google.devtools.ksp")
         }
 
         android {
@@ -126,6 +128,12 @@ object AppTemplate {
             implementation("androidx.compose.foundation:foundation")
             implementation("androidx.compose.animation:animation")
             implementation("androidx.compose.material3:material3")
+
+            implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
+            implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
+            implementation("androidx.room:room-runtime:2.6.1")
+            implementation("androidx.room:room-ktx:2.6.1")
+            ksp("androidx.room:room-compiler:2.6.1")
         }
     """.trimIndent() + "\n"
 

@@ -46,9 +46,10 @@ class GitHubCommands(private val context: Context, private val prefs: Preference
     private val mergePr = rx("^merge\\s+(?:pr|pull\\s+request)\\s+#?(\\d+)\\s+$inRepo$")
     private val editFile = rx("^edit\\s+(?:file\\s+)?(\\S+)\\s+$inRepo\\s*[:\\-]\\s*(.+)$")
 
-    private val createApp = rx(
-        "^(?:create|build|make|generate)\\s+(?:an?\\s+)?(?:android\\s+app|apk)" +
-            "(?:\\s+(?:in|into)\\s+(?:repo\\s+)?([\\w.-]+))?\\s*(?:that|which|for|of|to|:|-)?\\s*(.+)$"
+    private val createApp = Regex(
+        "^(?:create|build|make|generate|develop)\\s+(?:me\\s+)?(?:an?\\s+|the\\s+)?(?:[\\w-]+\\s+){0,3}?(?:android\\s+app|apk)\\b" +
+            "(?:\\s+(?:in|into)\\s+(?:repo\\s+)?([\\w.-]+))?\\s*(?:that|which|for|of|to|called|named|:|-)?\\s*(.+)$",
+        setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)
     )
     private val buildStatus = rx("^(?:check\\s+)?(?:the\\s+)?build\\s+(?:status\\s+)?(?:of|for|in)\\s+$repoRef$")
     private val whyFailed = rx("^why\\s+(?:did\\s+)?(?:the\\s+)?build\\s+fail(?:ed)?\\s+(?:of|for|in)\\s+$repoRef$")

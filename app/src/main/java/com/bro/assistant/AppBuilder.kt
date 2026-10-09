@@ -134,7 +134,7 @@ class AppBuilder(private val prefs: PreferencesStore, private val gh: GitHubClie
             if (content.length > 60_000) throw IllegalStateException("The AI wrote a file that is too big. Try a simpler app.")
             out.add(GenFile(path, content))
         }
-        if (out.isEmpty() || out.size > 12) throw IllegalStateException("The AI returned an unusable file list. Try again.")
+        if (out.isEmpty() || out.size > 25) throw IllegalStateException("The AI returned an unusable file list. Try again.")
         if (out.none { it.path.endsWith("/MainActivity.kt") }) {
             throw IllegalStateException("The AI forgot MainActivity.kt. Try again.")
         }
@@ -149,15 +149,26 @@ class AppBuilder(private val prefs: PreferencesStore, private val gh: GitHubClie
             - There must be a MainActivity.kt with: class MainActivity : ComponentActivity(), calling setContent { ... }.
             - Write all imports explicitly. Do not use wildcard-only assumptions.
             - The ONLY libraries available: androidx.core:core-ktx, androidx.activity:activity-compose,
-              kotlinx-coroutines-android, Compose ui, ui-graphics, foundation, animation, material3 (BOM 2024.10.01).
-            - Do NOT use: material-icons (any), navigation-compose, viewModel(), Room, Retrofit, Coil, Hilt, or any other library.
-              Use remember / mutableStateOf for state. For icons use Text symbols.
+              kotlinx-coroutines-android, Compose ui, ui-graphics, foundation, animation, material3 (BOM 2024.10.01),
+              lifecycle-viewmodel-compose and lifecycle-runtime-compose 2.8.7 (viewModel(), collectAsStateWithLifecycle()),
+              and Room 2.6.1 with KSP (room-runtime, room-ktx, room-compiler).
+            - Do NOT use: material-icons (any), navigation-compose, Retrofit, Coil, Hilt, WorkManager, or any other library.
+              For icons use Text symbols. For screens use a simple enum/sealed class and `when`.
+            - Room rules: @Database(entities = [...], version = 1, exportSchema = false); create it once with
+              Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "name").build(); DAO functions are
+              `suspend` or return Flow; never allowMainThreadQueries; run writes inside viewModelScope.launch / rememberCoroutineScope.
+              Store dates as epoch-day Long or ISO text. java.time is available (minSdk 26).
+            - To export or save a file (CSV etc.) use rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv"))
+              and write with contentResolver.openOutputStream. Do not use file permissions.
+            - NEVER invent facts, dates or numbers that the user did not give you (for example holiday dates, exam dates, fees).
+              Put only user-given data in the code, and give the user an in-app screen to add, edit and delete such data.
+            - Calculations must be exact. Keep them in a separate pure Kotlin file with no Android imports so they are easy to check.
             - Material3 APIs marked experimental need @OptIn(ExperimentalMaterial3Api::class).
             - Do not use the INTERNET permission or anything that needs other permissions.
             - Make the UI work on a phone screen: use fillMaxSize, verticalScroll where content may overflow, and
               safeDrawingPadding() or systemBarsPadding().
             - Use a dark theme with darkColorScheme() unless the user asks otherwise.
-            - Keep it small and simple (usually 1-3 files). No placeholders, no TODO, no "...".
+            - Use as many files as the app needs (at most 20), each under 800 lines. No placeholders, no TODO, no "...".
             - Double-check types, imports and braces before answering.
         """
 
