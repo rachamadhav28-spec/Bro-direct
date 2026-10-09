@@ -72,6 +72,17 @@ class IntentParser(private val memory: SessionMemory, prefs: PreferencesStore) {
             YOUTUBE_PLAY_FIRST
             WHATSAPP_MESSAGE {contact, message}
 
+            Language: the user may speak or type English, Telugu (తెలుగు script), Tenglish (Telugu written in
+            English letters, e.g. "whatsapp open chey", "ammulu akka ki hi cheppu", "wifi off cheyyi"), or a mix.
+            Understand all of them. Telugu word order puts the verb last: "<thing> open chey" = open <thing>,
+            "<name> ki <text> cheppu/pampu" = send <text> to <name>, "<name> ki call chey" = call <name>,
+            "<setting> on/off chey" = turn the setting on/off, "penchu" = increase, "taggu" = decrease,
+            "tarvata" = then, "mariyu" = and, "ela unnav/em chestunnav" = casual chat.
+            Always keep action params in plain English/Latin form (app names, contact names as spoken, and the
+            message text exactly as the user meant it, in the language they wanted to send it).
+            Write "reply" in the same language style the user used: Telugu script -> Telugu, Tenglish -> Tenglish,
+            English -> English. Keep replies short.
+
             Rules:
             - If the user is only chatting or asking a question, use an empty actions list and answer in reply (max 2 short sentences).
             - If the user wants actions, reply is a short confirmation such as "Working on it."

@@ -81,7 +81,7 @@ class LocalCommandParser(private val memory: SessionMemory) {
     private val pronouns = setOf("him", "her", "them", "he", "she")
 
     fun parse(raw: String): Result? {
-        val text = raw.trim().replace(wakePrefix, "").trim().trimEnd('.', '!', '?')
+        val text = TeluguNormalizer.preprocess(raw.trim().replace(wakePrefix, "").trim().trimEnd('.', '!', '?'))
         if (text.isEmpty()) return null
 
         val clauses = text.split(splitter).filter { it.isNotBlank() }
@@ -98,7 +98,7 @@ class LocalCommandParser(private val memory: SessionMemory) {
     }
 
     private fun parseClause(clause: String): Result? {
-        val c = clause.trim().trimEnd('.', '!', '?', ',', ' ')
+        val c = TeluguNormalizer.clause(clause.trim().trimEnd('.', '!', '?', ',', ' '))
         if (c.isEmpty()) return null
 
         openAnd.find(c)?.let { m ->

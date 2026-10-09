@@ -54,6 +54,7 @@ fun SettingsScreen(
     var confirmSend by remember { mutableStateOf(prefs.confirmBeforeSend) }
     var speakReplies by remember { mutableStateOf(prefs.speakReplies) }
     var voiceLabel by remember { mutableStateOf(prefs.voiceName.ifBlank { "Default (lower pitch)" }) }
+    var speechLang by remember { mutableStateOf(prefs.language) }
     var saved by remember { mutableStateOf(false) }
     val wakeOn = remember(tick) { prefs.wakeEnabled }
 
@@ -105,6 +106,15 @@ fun SettingsScreen(
             }) { Text("Next voice") }
             OutlinedButton(onClick = { vm.testVoice() }) { Text("Test voice") }
         }
+
+        Text(
+            "Speech language: " + if (speechLang.startsWith("te")) "Telugu (te-IN)" else "English / Tenglish (en-IN)",
+            color = Color.White
+        )
+        OutlinedButton(onClick = {
+            speechLang = if (speechLang.startsWith("te")) "en-IN" else "te-IN"
+            prefs.language = speechLang
+        }) { Text("Switch speech language") }
 
         Heading("Wake phrase")
         OutlinedTextField(
