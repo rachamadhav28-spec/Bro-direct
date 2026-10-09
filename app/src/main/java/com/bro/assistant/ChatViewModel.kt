@@ -32,7 +32,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     val prefs = PreferencesStore(app)
     private val memory = SessionMemory()
     private val planner = ActionPlanner(app, memory, prefs)
-    private val github = GitHubCommands(prefs)
+    private val github = GitHubCommands(app, prefs)
     private val taskManager = TaskManager(app, memory, prefs)
     val tts = SpeechOutput(app, prefs)
 

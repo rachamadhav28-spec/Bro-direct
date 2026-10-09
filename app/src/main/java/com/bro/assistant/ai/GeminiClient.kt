@@ -16,13 +16,18 @@ import java.net.URL
  */
 class GeminiClient(private val prefs: PreferencesStore) {
 
-    suspend fun generate(system: String, user: String, json: Boolean = true): String = withContext(Dispatchers.IO) {
+    suspend fun generate(
+        system: String,
+        user: String,
+        json: Boolean = true,
+        timeoutMs: Int = if (json) 30000 else 90000
+    ): String = withContext(Dispatchers.IO) {
         val url = URL("https://generativelanguage.googleapis.com/v1beta/models/${prefs.model}:generateContent")
         val conn = url.openConnection() as HttpURLConnection
         try {
             conn.requestMethod = "POST"
             conn.connectTimeout = 15000
-            conn.readTimeout = if (json) 30000 else 90000
+            conn.readTimeout = timeoutMs
             conn.doOutput = true
             conn.setRequestProperty("Content-Type", "application/json")
             conn.setRequestProperty("x-goog-api-key", prefs.apiKey)
@@ -44,7 +49,7 @@ class GeminiClient(private val prefs: PreferencesStore) {
                     JSONObject().apply {
                         if (json) put("responseMimeType", "application/json")
                         put("temperature", if (json) 0.2 else 0.3)
-                        if (!json) put("maxOutputTokens", 8192)
+                        put("maxOutputTokens", 32768)
                     }
                 )
 

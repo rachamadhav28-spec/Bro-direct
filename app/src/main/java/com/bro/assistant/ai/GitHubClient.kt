@@ -56,8 +56,13 @@ class GitHubClient(private val prefs: PreferencesStore) {
         }
     }
 
-    suspend fun createRepo(name: String, private: Boolean): String {
-        val o = JSONObject(call("POST", "/user/repos", JSONObject().put("name", name).put("private", private)))
+    suspend fun createRepo(name: String, private: Boolean, autoInit: Boolean = false): String {
+        val o = JSONObject(
+            call(
+                "POST", "/user/repos",
+                JSONObject().put("name", name).put("private", private).put("auto_init", autoInit)
+            )
+        )
         return o.getString("html_url")
     }
 
@@ -99,5 +104,79 @@ class GitHubClient(private val prefs: PreferencesStore) {
         val full = fullName(repo)
         val o = JSONObject(call("POST", "/repos/$full/issues", JSONObject().put("title", title)))
         return o.getString("html_url")
+    }
+
+    data class RunInfo(val id: Long, val status: String, val conclusion: String?, val url: String)
+
+    suspend fun latestRun(repo: String, onlySuccess: Boolean = false): RunInfo? {
+        val full = fullName(repo)
+        val q = if (onlySuccess) "&status=success" else ""
+        val arr = JSONObject(call("GET", "/repos/$full/actions/runs?per_page=1$q")).getJSONArray("workflow_runs")
+        if (arr.length() == 0) return null
+        val o = arr.getJSONObject(0)
+        val conclusion = if (o.isNull("conclusion")) null else o.optString("conclusion").ifBlank { null }
+        return RunInfo(o.getLong("id"), o.getString("status"), conclusion, o.getString("html_url"))
+    }
+
+    /** Text of the failed job's log (may be long). */
+    suspend fun failedLog(repo: String, runId: Long): String {
+        val full = fullName(repo)
+        val jobs = JSONObject(call("GET", "/repos/$full/actions/runs/$runId/jobs")).getJSONArray("jobs")
+        for (i in 0 until jobs.length()) {
+            val j = jobs.getJSONObject(i)
+            if (j.optString("conclusion") == "failure") {
+                return String(download("/repos/$full/actions/jobs/${j.getLong("id")}/logs"), Charsets.UTF_8)
+            }
+        }
+        return ""
+    }
+
+    /** Bytes of the first .apk inside the latest successful run's artifact, or null. */
+    suspend fun latestApk(repo: String): ByteArray? {
+        val full = fullName(repo)
+        val run = latestRun(repo, onlySuccess = true) ?: return null
+        val arts = JSONObject(call("GET", "/repos/$full/actions/runs/${run.id}/artifacts")).getJSONArray("artifacts")
+        if (arts.length() == 0) return null
+        val zip = download("/repos/$full/actions/artifacts/${arts.getJSONObject(0).getLong("id")}/zip")
+        java.util.zip.ZipInputStream(zip.inputStream()).use { z ->
+            while (true) {
+                val e = z.nextEntry ?: break
+                if (e.name.endsWith(".apk")) return z.readBytes()
+            }
+        }
+        return null
+    }
+
+    /** GET that follows the redirect to the storage URL without sending the token there. */
+    private suspend fun download(path: String): ByteArray = withContext(Dispatchers.IO) {
+        val first = URL("https://api.github.com$path").openConnection() as HttpURLConnection
+        try {
+            first.instanceFollowRedirects = false
+            first.connectTimeout = 15000
+            first.readTimeout = 60000
+            first.setRequestProperty("Authorization", "Bearer ${prefs.githubToken}")
+            first.setRequestProperty("Accept", "application/vnd.github+json")
+            first.setRequestProperty("User-Agent", "BRO-Assistant")
+            val code = first.responseCode
+            when {
+                code in 300..399 -> {
+                    val loc = first.getHeaderField("Location") ?: throw GitHubException(code, "no download link")
+                    val second = URL(loc).openConnection() as HttpURLConnection
+                    try {
+                        second.connectTimeout = 15000
+                        second.readTimeout = 120000
+                        val c2 = second.responseCode
+                        if (c2 !in 200..299) throw GitHubException(c2, "download failed")
+                        second.inputStream.use { it.readBytes() }
+                    } finally {
+                        second.disconnect()
+                    }
+                }
+                code in 200..299 -> first.inputStream.use { it.readBytes() }
+                else -> throw GitHubException(code, "download failed")
+            }
+        } finally {
+            first.disconnect()
+        }
     }
 }

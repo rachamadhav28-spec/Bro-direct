@@ -93,7 +93,7 @@ fun SettingsScreen(
         Heading("GitHub")
         OutlinedTextField(
             value = githubToken, onValueChange = { githubToken = it; saved = false },
-            label = { Text("GitHub token (repo access)") }, singleLine = true,
+            label = { Text("GitHub token (needs repo + workflow)") }, singleLine = true,
             visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth()
         )
 
