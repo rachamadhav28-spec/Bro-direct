@@ -21,7 +21,16 @@ jobs:
           gradle-version: 8.9
 
       - name: Build debug APK
-        run: gradle :app:assembleDebug --stacktrace
+        run: gradle :app:assembleDebug --stacktrace 2>&1 | tee build.log; exit ${PIPESTATUS[0]}
+        shell: bash
+
+      - name: Report compile errors
+        if: failure()
+        shell: bash
+        run: |
+          grep -E "^e: |error:|What went wrong" -A2 build.log | head -40 | while IFS= read -r line; do
+            echo "::error::${line}"
+          done
 
       - uses: actions/upload-artifact@v4
         with:
