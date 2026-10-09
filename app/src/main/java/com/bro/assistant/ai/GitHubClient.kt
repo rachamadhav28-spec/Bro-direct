@@ -180,21 +180,6 @@ class GitHubClient(private val prefs: PreferencesStore) {
         }
     }
 
-    data class Build(val status: String, val conclusion: String?, val url: String, val title: String, val artifacts: List<String>)
-
-    suspend fun latestBuild(repo: String): Build? {
-        val full = fullName(repo)
-        val runs = JSONObject(call("GET", "/repos/$full/actions/runs?per_page=1")).getJSONArray("workflow_runs")
-        if (runs.length() == 0) return null
-        val r = runs.getJSONObject(0)
-        val conclusion = if (r.isNull("conclusion")) null else r.getString("conclusion")
-        val arts = if (conclusion == "success") {
-            val a = JSONObject(call("GET", "/repos/$full/actions/runs/${r.getLong("id")}/artifacts")).getJSONArray("artifacts")
-            (0 until a.length()).map { a.getJSONObject(it).getString("name") }
-        } else emptyList()
-        return Build(r.getString("status"), conclusion, r.getString("html_url"), r.optString("display_title"), arts)
-    }
-
     suspend fun issues(repo: String): List<String> {
         val arr = JSONArray(call("GET", "/repos/${fullName(repo)}/issues?state=open&per_page=20"))
         return (0 until arr.length()).map { arr.getJSONObject(it) }
