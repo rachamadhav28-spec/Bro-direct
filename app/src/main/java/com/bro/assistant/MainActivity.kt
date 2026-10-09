@@ -81,16 +81,9 @@ class MainActivity : ComponentActivity() {
                         ChatScreen(
                             vm = vm,
                             onMic = { onMicTapped() },
-                            onOpenSettings = { showSettings = true }
+                            onOpenSettings = { showSettings = true },
+                            onOpenHistory = { vm.refreshHistory(); showHistory = true }
                         )
-                        // History button (floating). Move it into ChatScreen's top bar if you prefer.
-                        androidx.compose.material3.TextButton(
-                            onClick = { vm.refreshHistory(); showHistory = true },
-                            modifier = Modifier
-                                .align(Alignment.TopCenter)
-                                .statusBarsPadding()
-                                .padding(top = 8.dp)
-                        ) { Text("History") }
                     }
 
                     val needed = vm.permissionNeeded

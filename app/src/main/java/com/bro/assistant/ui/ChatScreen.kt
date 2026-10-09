@@ -22,6 +22,8 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -46,7 +48,13 @@ import com.bro.assistant.ChatViewModel
 import com.bro.assistant.ui.theme.BroColors
 
 @Composable
-fun ChatScreen(vm: ChatViewModel, onMic: () -> Unit, onOpenSettings: () -> Unit) {
+fun ChatScreen(
+    vm: ChatViewModel,
+    onMic: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onOpenHistory: () -> Unit
+) {
+    var menuOpen by remember { mutableStateOf(false) }
     var input by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
 
@@ -78,7 +86,23 @@ fun ChatScreen(vm: ChatViewModel, onMic: () -> Unit, onOpenSettings: () -> Unit)
             Text("BRO", color = BroColors.Accent, fontSize = 22.sp, fontWeight = FontWeight.Bold)
             Row {
                 TextButton(onClick = { vm.newConversation() }) { Text("New") }
-                TextButton(onClick = onOpenSettings) { Text("Settings") }
+                Box {
+                    TextButton(onClick = { menuOpen = true }) { Text("Menu") }
+                    DropdownMenu(
+                        expanded = menuOpen,
+                        onDismissRequest = { menuOpen = false },
+                        containerColor = BroColors.Background
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("History", color = BroColors.Accent) },
+                            onClick = { menuOpen = false; onOpenHistory() }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Settings", color = BroColors.Accent) },
+                            onClick = { menuOpen = false; onOpenSettings() }
+                        )
+                    }
+                }
             }
         }
 
