@@ -179,4 +179,68 @@ class GitHubClient(private val prefs: PreferencesStore) {
             first.disconnect()
         }
     }
+
+    data class Build(val status: String, val conclusion: String?, val url: String, val title: String, val artifacts: List<String>)
+
+    suspend fun latestBuild(repo: String): Build? {
+        val full = fullName(repo)
+        val runs = JSONObject(call("GET", "/repos/$full/actions/runs?per_page=1")).getJSONArray("workflow_runs")
+        if (runs.length() == 0) return null
+        val r = runs.getJSONObject(0)
+        val conclusion = if (r.isNull("conclusion")) null else r.getString("conclusion")
+        val arts = if (conclusion == "success") {
+            val a = JSONObject(call("GET", "/repos/$full/actions/runs/${r.getLong("id")}/artifacts")).getJSONArray("artifacts")
+            (0 until a.length()).map { a.getJSONObject(it).getString("name") }
+        } else emptyList()
+        return Build(r.getString("status"), conclusion, r.getString("html_url"), r.optString("display_title"), arts)
+    }
+
+    suspend fun issues(repo: String): List<String> {
+        val arr = JSONArray(call("GET", "/repos/${fullName(repo)}/issues?state=open&per_page=20"))
+        return (0 until arr.length()).map { arr.getJSONObject(it) }
+            .filter { !it.has("pull_request") }
+            .map { "#" + it.getInt("number") + " " + it.getString("title") }
+    }
+
+    suspend fun commentOnIssue(repo: String, number: Int, text: String) {
+        call("POST", "/repos/${fullName(repo)}/issues/$number/comments", JSONObject().put("body", text))
+    }
+
+    suspend fun commits(repo: String): List<String> {
+        val arr = JSONArray(call("GET", "/repos/${fullName(repo)}/commits?per_page=10"))
+        return (0 until arr.length()).map {
+            val o = arr.getJSONObject(it)
+            o.getString("sha").take(7) + " " + o.getJSONObject("commit").getString("message").lines().first()
+        }
+    }
+
+    suspend fun pulls(repo: String): List<String> {
+        val arr = JSONArray(call("GET", "/repos/${fullName(repo)}/pulls?state=open&per_page=20"))
+        return (0 until arr.length()).map {
+            val o = arr.getJSONObject(it)
+            "#" + o.getInt("number") + " " + o.getString("title") + " (" +
+                o.getJSONObject("head").getString("ref") + " -> " + o.getJSONObject("base").getString("ref") + ")"
+        }
+    }
+
+    suspend fun createBranch(repo: String, name: String): String {
+        val full = fullName(repo)
+        val base = JSONObject(call("GET", "/repos/$full")).getString("default_branch")
+        val sha = JSONObject(call("GET", "/repos/$full/git/ref/heads/$base")).getJSONObject("object").getString("sha")
+        call("POST", "/repos/$full/git/refs", JSONObject().put("ref", "refs/heads/$name").put("sha", sha))
+        return base
+    }
+
+    suspend fun createPull(repo: String, head: String, base: String, title: String): String {
+        val o = JSONObject(
+            call(
+                "POST", "/repos/${fullName(repo)}/pulls",
+                JSONObject().put("title", title).put("head", head).put("base", base)
+            )
+        )
+        return o.getString("html_url")
+    }
+
+    suspend fun mergePull(repo: String, number: Int): String =
+        JSONObject(call("PUT", "/repos/${fullName(repo)}/pulls/$number/merge", JSONObject())).optString("message", "Merged")
 }
