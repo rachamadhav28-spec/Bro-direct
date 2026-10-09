@@ -7,6 +7,13 @@ class SessionMemory {
     var lastMessage: String? = null
     var lastCode: String? = null
 
+    companion object {
+        /** Last fenced code block inside [text], or null. */
+        fun extractLastCode(text: String): String? =
+            Regex("```[^\\n]*\\n(.*?)```", RegexOption.DOT_MATCHES_ALL).findAll(text).lastOrNull()
+                ?.groupValues?.get(1)?.trimEnd()
+    }
+
     private val history = ArrayDeque<String>()
 
     fun addUser(text: String) = add("User: $text")

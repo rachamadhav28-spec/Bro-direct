@@ -92,6 +92,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         stored.addAll(c.messages)
         c.messages.forEach { messages.add(ChatMessage(nextId++, it.role == "user", it.text)) }
         memory.reset()
+        memory.lastCode = c.messages.lastOrNull { it.role != "user" && "```" in it.text }
+            ?.let { SessionMemory.extractLastCode(it.text) }
         c.messages.takeLast(10).forEach { if (it.role == "user") memory.addUser(it.text) else memory.addBro(it.text) }
     }
 
