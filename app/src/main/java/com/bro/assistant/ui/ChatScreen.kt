@@ -58,8 +58,10 @@ fun ChatScreen(
     var input by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
 
-    LaunchedEffect(vm.messages.size) {
-        if (vm.messages.isNotEmpty()) listState.animateScrollToItem(vm.messages.lastIndex)
+    val thinking = vm.state == BroState.THINKING || vm.state == BroState.EXECUTING
+    LaunchedEffect(vm.messages.size, thinking) {
+        val total = vm.messages.size + if (thinking) 1 else 0
+        if (total > 0) listState.animateScrollToItem(total - 1)
     }
 
     fun submit() {
@@ -83,7 +85,13 @@ fun ChatScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("BRO", color = BroColors.Accent, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text("BRO", color = BroColors.Accent, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    "  build " + com.bro.assistant.BuildConfig.BUILD_NUMBER,
+                    color = Color.Gray, fontSize = 11.sp, modifier = Modifier.padding(bottom = 3.dp)
+                )
+            }
             Row {
                 TextButton(onClick = { vm.newConversation() }) { Text("New") }
                 Box {
@@ -106,16 +114,19 @@ fun ChatScreen(
             }
         }
 
-        Box(Modifier.fillMaxWidth().height(190.dp), contentAlignment = Alignment.Center) {
-            BroOrb(vm.state, Modifier.size(180.dp))
+        // The orb only appears while you are talking to BRO (mic on).
+        if (vm.state == BroState.LISTENING) {
+            Box(Modifier.fillMaxWidth().height(190.dp), contentAlignment = Alignment.Center) {
+                BroOrb(vm.state, Modifier.size(180.dp))
+            }
+            Text(
+                statusLabel(vm.state, vm.partialText),
+                color = Color.LightGray,
+                fontSize = 14.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
+            )
         }
-        Text(
-            statusLabel(vm.state, vm.partialText) + "  ·  build " + com.bro.assistant.BuildConfig.BUILD_NUMBER,
-            color = Color.LightGray,
-            fontSize = 14.sp,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
-        )
 
         TaskProgressCard(vm.steps)
         Spacer(Modifier.height(6.dp))
@@ -126,6 +137,7 @@ fun ChatScreen(
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             items(vm.messages, key = { it.id }) { message -> Bubble(message) }
+            if (thinking) item(key = "dino") { DinoThinking(if (vm.state == BroState.EXECUTING) "Working" else "Thinking") }
         }
 
         Row(

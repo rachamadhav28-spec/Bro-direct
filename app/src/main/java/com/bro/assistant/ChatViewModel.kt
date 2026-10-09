@@ -16,6 +16,9 @@ import com.bro.assistant.task.TaskNotifier
 import com.bro.assistant.voice.SpeechInput
 import com.bro.assistant.voice.SpeechOutput
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -26,6 +29,9 @@ import kotlinx.coroutines.withTimeoutOrNull
  * Runs inside the app process, so tasks continue when the screen is hidden
  * (BroTaskService keeps the process alive with a notification).
  */
+/** Lives as long as the app process, so a running task is not cancelled when the screen closes. */
+private val taskScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     private val app = application
@@ -165,20 +171,28 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
         busy = true
-        viewModelScope.launch {
+        lastReply = null
+        // Runs in a process-wide scope with a foreground service, so the task keeps going when you
+        // leave the app, and you get a notification when it is done.
+        BroTaskService.start(app, "BRO is working on: " + text.take(60))
+        taskScope.launch {
             try {
                 handle(text)
+                if (!appVisible) lastReply?.let { TaskNotifier.notifyDone(app, it.take(150)) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 ErrorHandler.log("ChatViewModel", "command failed", e)
                 reply(ErrorHandler.friendly(e), BroState.ERROR)
+                if (!appVisible) TaskNotifier.notifyDone(app, ErrorHandler.friendly(e).take(150))
             } finally {
+                BroTaskService.stop(app)
                 busy = false
             }
         }
     }
 
+    private var lastReply: String? = null
     private var lastCommand: String? = null
     private val retryRx = Regex("^(?:please\\s+)?(?:try\\s+again|retry|again|do\\s+it\\s+again|once\\s+more)[.!]*$", RegexOption.IGNORE_CASE)
 
@@ -220,15 +234,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         if (prefs.speakReplies) tts.speak(ack, flush = false)
         state = BroState.EXECUTING
 
-        BroTaskService.start(app, ack)
-        val outcome = try {
-            taskManager.run(plan.actions) { question -> askConfirm(question) }
-        } finally {
-            BroTaskService.stop(app)
-        }
+        val outcome = taskManager.run(plan.actions) { question -> askConfirm(question) }
 
         if (outcome.needsPermission != null) permissionNeeded = outcome.needsPermission
-        if (!appVisible) TaskNotifier.notifyDone(app, outcome.summary)
         reply(outcome.summary, if (outcome.success) BroState.SUCCESS else BroState.ERROR)
     }
 
@@ -237,7 +245,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         confirmDeferred = deferred
         confirmPrompt = question
         if (prefs.speakReplies) tts.speak(question)
-        val answer = withTimeoutOrNull(60_000L) { deferred.await() } ?: false
+        if (!appVisible) TaskNotifier.notifyDone(app, "BRO needs your OK: $question")
+        val answer = withTimeoutOrNull(600_000L) { deferred.await() } ?: false
         confirmPrompt = null
         confirmDeferred = null
         return answer
@@ -250,6 +259,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     // ---------- replies ----------
 
     private fun reply(text: String, end: BroState, then: (() -> Unit)? = null) {
+        lastReply = text
         addMessage(false, text)
         memory.addBro(text)
         state = end
@@ -312,7 +322,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     override fun onCleared() {
         stt.destroy()
-        tts.shutdown()
+        if (!busy) tts.shutdown() // a task may still be finishing in the background
         super.onCleared()
     }
 }
