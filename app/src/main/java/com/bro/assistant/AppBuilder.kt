@@ -98,8 +98,12 @@ class AppBuilder(private val prefs: PreferencesStore, private val gh: GitHubClie
 
         val names = gh.listFiles(repo, AppTemplate.SOURCE_DIR).filter { it.endsWith(".kt") }
         if (names.isEmpty()) return "I only know how to fix apps that BRO created."
-        val current = names.joinToString("\n\n") { n ->
-            "FILE: ${AppTemplate.SOURCE_DIR}$n\n" + gh.readFile(repo, AppTemplate.SOURCE_DIR + n)
+        val current = buildString {
+            for (n in names) {
+                if (isNotEmpty()) append("\n\n")
+                append("FILE: ").append(AppTemplate.SOURCE_DIR).append(n).append('\n')
+                append(gh.readFile(repo, AppTemplate.SOURCE_DIR + n))
+            }
         }
         val raw = gemini.generate(
             FIX_PROMPT, "Build errors:\n$errors\n\nCurrent files:\n$current", json = true, timeoutMs = 150000
