@@ -3,6 +3,7 @@ package com.bro.assistant.ai
 import com.bro.assistant.AiException
 import com.bro.assistant.memory.PreferencesStore
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -16,11 +17,30 @@ import java.net.URL
  */
 class GeminiClient(private val prefs: PreferencesStore) {
 
+    /** Retries when Google says it is overloaded (429, 500, 502, 503, 504). */
     suspend fun generate(
         system: String,
         user: String,
         json: Boolean = true,
         timeoutMs: Int = if (json) 30000 else 90000
+    ): String {
+        val waits = longArrayOf(2000, 6000, 15000)
+        var attempt = 0
+        while (true) {
+            try {
+                return generateOnce(system, user, json, timeoutMs)
+            } catch (e: AiException) {
+                if (e.code !in listOf(429, 500, 502, 503, 504) || attempt >= waits.size) throw e
+                delay(waits[attempt++])
+            }
+        }
+    }
+
+    private suspend fun generateOnce(
+        system: String,
+        user: String,
+        json: Boolean,
+        timeoutMs: Int
     ): String = withContext(Dispatchers.IO) {
         val url = URL("https://generativelanguage.googleapis.com/v1beta/models/${prefs.model}:generateContent")
         val conn = url.openConnection() as HttpURLConnection

@@ -4,6 +4,8 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+val buildNumber = (project.findProperty("buildNumber") as String?)?.toIntOrNull() ?: 1
+
 android {
     namespace = "com.bro.assistant"
     compileSdk = 35
@@ -12,8 +14,9 @@ android {
         applicationId = "com.bro.assistant"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = buildNumber
+        versionName = "1.$buildNumber"
+        buildConfigField("int", "BUILD_NUMBER", buildNumber.toString())
     }
 
     buildTypes {
@@ -32,6 +35,7 @@ android {
     }
 
     buildFeatures {
+        buildConfig = true
         compose = true
     }
 }

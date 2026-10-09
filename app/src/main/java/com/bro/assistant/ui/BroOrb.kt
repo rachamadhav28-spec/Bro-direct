@@ -11,6 +11,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.Color
+import com.bro.assistant.BuildConfig
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -23,12 +26,15 @@ import com.bro.assistant.ui.theme.BroColors
 /** The animated BRO orb. Colour and motion change with the assistant state. */
 @Composable
 fun BroOrb(state: BroState, modifier: Modifier = Modifier) {
+    // Every new build gets its own orb colour and ring count, so you can see an update landed.
+    val accent = remember { Color.hsv(((BuildConfig.BUILD_NUMBER * 47) % 360).toFloat(), 0.85f, 1f) }
+    val rings = 2 + BuildConfig.BUILD_NUMBER % 3
     val targetColor = when (state) {
-        BroState.IDLE -> BroColors.Accent.copy(alpha = 0.7f)
+        BroState.IDLE -> accent.copy(alpha = 0.7f)
         BroState.LISTENING -> BroColors.Listening
         BroState.THINKING -> BroColors.Thinking
         BroState.EXECUTING -> BroColors.Executing
-        BroState.SPEAKING -> BroColors.Accent
+        BroState.SPEAKING -> accent
         BroState.SUCCESS -> BroColors.Success
         BroState.ERROR -> BroColors.Error
     }
@@ -77,7 +83,7 @@ fun BroOrb(state: BroState, modifier: Modifier = Modifier) {
             radius = coreRadius * 1.6f,
             center = c
         )
-        for (i in 1..3) {
+        for (i in 1..rings) {
             drawCircle(
                 color = color.copy(alpha = 0.40f / i),
                 radius = r * (0.55f + 0.14f * i) + r * amplitude * pulse * i,

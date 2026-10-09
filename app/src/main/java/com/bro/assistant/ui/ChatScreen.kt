@@ -110,7 +110,7 @@ fun ChatScreen(
             BroOrb(vm.state, Modifier.size(180.dp))
         }
         Text(
-            statusLabel(vm.state, vm.partialText),
+            statusLabel(vm.state, vm.partialText) + "  ·  build " + com.bro.assistant.BuildConfig.BUILD_NUMBER,
             color = Color.LightGray,
             fontSize = 14.sp,
             textAlign = TextAlign.Center,

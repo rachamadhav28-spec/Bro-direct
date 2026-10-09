@@ -21,7 +21,7 @@ jobs:
           gradle-version: 8.9
 
       - name: Build debug APK
-        run: gradle :app:assembleDebug --stacktrace 2>&1 | tee build.log; exit ${PIPESTATUS[0]}
+        run: gradle :app:assembleDebug -PbuildNumber=${{ github.run_number }} --stacktrace 2>&1 | tee build.log; exit ${PIPESTATUS[0]}
         shell: bash
 
       - name: Report compile errors
