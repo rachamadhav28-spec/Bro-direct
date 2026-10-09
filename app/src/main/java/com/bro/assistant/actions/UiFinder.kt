@@ -39,6 +39,20 @@ object UiFinder {
         return null
     }
 
+    /** Finds a Quick Settings tile: exact label first, then partial; skips nodes containing [exclude]. */
+    fun findTile(labels: List<String>, exclude: String? = null): AccessibilityNodeInfo? {
+        val nodes = allNodes().filter {
+            exclude == null || !(textOf(it).contains(exclude, true) || descOf(it).contains(exclude, true))
+        }
+        for (label in labels) {
+            nodes.firstOrNull { textOf(it).equals(label, true) || descOf(it).equals(label, true) }?.let { return it }
+        }
+        for (label in labels) {
+            nodes.firstOrNull { textOf(it).contains(label, true) || descOf(it).contains(label, true) }?.let { return it }
+        }
+        return null
+    }
+
     /** First on-screen node whose text or description equals the label. */
     fun findExact(label: String): AccessibilityNodeInfo? =
         allNodes().firstOrNull {

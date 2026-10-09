@@ -14,8 +14,29 @@ class LocalCommandParser(private val memory: SessionMemory) {
 
     private fun rx(pattern: String) = Regex(pattern, RegexOption.IGNORE_CASE)
 
-    private val toggleNames =
-        "wi-?fi|bluetooth|personal hotspot|hotspot|location|gps|airplane mode|flight mode|aeroplane mode|mobile data|cellular data|data"
+    private val tileAliases = listOf(
+        "super battery saver" to "super_battery_saver",
+        "battery saver|power saving mode" to "battery_saver",
+        "ultra game mode|game mode" to "ultra_game_mode",
+        "dark mode|dark theme" to "dark_mode",
+        "auto-?\\s?rotate|screen rotation|rotation" to "auto_rotate",
+        "do not disturb|dnd" to "dnd",
+        "eye protection|eye comfort" to "eye_protection",
+        "focus mode" to "focus_mode",
+        "bedtime mode" to "bedtime_mode",
+        "mic access|microphone access" to "mic_access",
+        "camera access" to "camera_access",
+        "data saver|data saving" to "data_saver",
+        "extra dim" to "extra_dim",
+        "color inversion|invert colou?rs" to "color_inversion",
+        "wi-?fi" to "wifi",
+        "bluetooth" to "bluetooth",
+        "personal hotspot|hotspot" to "hotspot",
+        "location|gps" to "location",
+        "airplane mode|flight mode|aeroplane mode" to "airplane",
+        "mobile data|cellular data|data" to "mobile_data"
+    )
+    private val toggleNames = tileAliases.joinToString("|") { it.first }
 
     private val wakePrefix = rx("^(?:hey|ok|okay)?\\s*bro\\b[,.!:]?\\s*")
     private val splitter = rx(
@@ -45,6 +66,9 @@ class LocalCommandParser(private val memory: SessionMemory) {
     private val toggle1 = rx("^(?:turn|switch)\\s+(on|off)\\s+(?:the\\s+)?($toggleNames)$")
     private val toggle2 = rx("^(?:turn|switch)\\s+(?:the\\s+)?($toggleNames)\\s+(on|off)$")
     private val toggle3 = rx("^($toggleNames)\\s+(on|off)$")
+    private val enableTile = rx("^(?:enable|activate|start)\\s+(?:the\\s+)?($toggleNames)$")
+    private val disableTile = rx("^(?:disable|deactivate|stop)\\s+(?:the\\s+)?($toggleNames)$")
+    private val bareTile = rx("^(?:the\\s+)?($toggleNames)$")
     private val call = rx("^call\\s+(.+)$")
 
     private val playFirstOnly = rx("^(?:now\\s+)?play\\s+(?:the\\s+)?first\\s+(?:result|video|one)$")
@@ -141,6 +165,10 @@ class LocalCommandParser(private val memory: SessionMemory) {
         toggle2.find(c)?.let { m -> return toggle(m.groupValues[1], m.groupValues[2]) }
         toggle3.find(c)?.let { m -> return toggle(m.groupValues[1], m.groupValues[2]) }
 
+        enableTile.find(c)?.let { m -> return toggle(m.groupValues[1], "on") }
+        disableTile.find(c)?.let { m -> return toggle(m.groupValues[1], "off") }
+        bareTile.find(c)?.let { return ask("Do you want ${it.groupValues[1]} on or off?") }
+
         call.find(c)?.let { m ->
             val who = m.groupValues[1].trim()
             val contact = resolveContact(who) ?: return ask("Who do you mean?")
@@ -176,14 +204,8 @@ class LocalCommandParser(private val memory: SessionMemory) {
         BroAction(ActionType.WHATSAPP_MESSAGE, mapOf("contact" to contact, "message" to message))
 
     private fun toggle(rawName: String, state: String): Result {
-        val name = when (rawName.lowercase().replace("-", "")) {
-            "wifi" -> "wifi"
-            "bluetooth" -> "bluetooth"
-            "hotspot", "personal hotspot" -> "hotspot"
-            "location", "gps" -> "location"
-            "airplane mode", "flight mode", "aeroplane mode" -> "airplane"
-            else -> "mobile_data"
-        }
+        val raw = rawName.trim()
+        val name = tileAliases.firstOrNull { rx("^(?:${it.first})$").matches(raw) }?.second ?: "mobile_data"
         return act(ActionType.TOGGLE_SETTING, "name" to name, "state" to state.lowercase())
     }
 

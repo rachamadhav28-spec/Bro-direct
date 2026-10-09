@@ -2,7 +2,7 @@ package com.bro.assistant.task
 
 object ActionValidator {
 
-    private val toggleNames = setOf("wifi", "bluetooth", "hotspot", "location", "airplane", "mobile_data")
+    private val toggleNames = com.bro.assistant.actions.Tiles.labels.keys
 
     /** Returns null when the action is valid, otherwise a short reason. */
     fun validate(a: BroAction): String? = when (a.type) {

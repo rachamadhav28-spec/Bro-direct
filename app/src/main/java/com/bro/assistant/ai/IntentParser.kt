@@ -67,7 +67,7 @@ class IntentParser(private val memory: SessionMemory, prefs: PreferencesStore) {
             SET_ALARM {hour (0-23), minute (0-59)}
             CALL {contact}
             FLASHLIGHT {state: on|off}
-            TOGGLE_SETTING {name: wifi|bluetooth|hotspot|location|airplane|mobile_data, state: on|off}
+            TOGGLE_SETTING {name: wifi|bluetooth|hotspot|location|airplane|mobile_data|ultra_game_mode|dark_mode|battery_saver|super_battery_saver|auto_rotate|dnd|eye_protection|focus_mode|bedtime_mode|mic_access|camera_access|data_saver|extra_dim|color_inversion, state: on|off}
             YOUTUBE_SEARCH {query}
             YOUTUBE_PLAY_FIRST
             WHATSAPP_MESSAGE {contact, message}

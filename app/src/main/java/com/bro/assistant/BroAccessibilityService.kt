@@ -5,7 +5,11 @@ import android.content.ComponentName
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import android.accessibilityservice.GestureDescription
+import android.graphics.Path
 import android.provider.Settings
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.withTimeoutOrNull
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 
@@ -45,6 +49,25 @@ class BroAccessibilityService : AccessibilityService() {
                 currentPackage = pkg
             }
         }
+    }
+
+    /** Horizontal swipe across the middle of the screen. [left] = finger moves right to left. */
+    suspend fun swipeHorizontal(left: Boolean): Boolean {
+        val dm = resources.displayMetrics
+        val y = dm.heightPixels * 0.55f
+        val from = dm.widthPixels * (if (left) 0.85f else 0.15f)
+        val to = dm.widthPixels * (if (left) 0.15f else 0.85f)
+        val path = Path().apply { moveTo(from, y); lineTo(to, y) }
+        val gesture = GestureDescription.Builder()
+            .addStroke(GestureDescription.StrokeDescription(path, 0, 250))
+            .build()
+        val done = CompletableDeferred<Boolean>()
+        val started = dispatchGesture(gesture, object : GestureResultCallback() {
+            override fun onCompleted(g: GestureDescription?) { done.complete(true) }
+            override fun onCancelled(g: GestureDescription?) { done.complete(false) }
+        }, null)
+        if (!started) return false
+        return withTimeoutOrNull(1500) { done.await() } ?: false
     }
 
     override fun onInterrupt() {}
