@@ -5,6 +5,7 @@ class SessionMemory {
     var lastApp: String? = null
     var lastContact: String? = null
     var lastMessage: String? = null
+    var lastCode: String? = null
 
     private val history = ArrayDeque<String>()
 
@@ -23,6 +24,7 @@ class SessionMemory {
         lastApp = null
         lastContact = null
         lastMessage = null
+        lastCode = null
         history.clear()
     }
 }

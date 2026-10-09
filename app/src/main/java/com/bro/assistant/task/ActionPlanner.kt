@@ -39,6 +39,18 @@ class ActionPlanner(
                     "Add a Gemini API key in Settings, or try a simpler command."
             )
         }
+        if (looksLikeCode(text)) {
+            return try {
+                val answer = ai.answerFreely(text)
+                extractLastCode(answer)?.let { memory.lastCode = it }
+                PlanResult(reply = answer)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                ErrorHandler.log("ActionPlanner", "code answer failed", e)
+                PlanResult(error = ErrorHandler.friendly(e))
+            }
+        }
         return try {
             val result = ai.understand(text)
             validated(result.reply.ifBlank { null }, result.actions)
@@ -49,6 +61,27 @@ class ActionPlanner(
             PlanResult(error = ErrorHandler.friendly(e))
         }
     }
+
+    private val codeWord = Regex(
+        "\\b(?:code|program|script|function|algorithm|java|python|kotlin|javascript|typescript|html|css|sql|" +
+            "c\\+\\+|c#|php|swift|rust|bash|regex|class|api)\\b|కోడ్", RegexOption.IGNORE_CASE
+    )
+    private val codeVerb = Regex(
+        "\\b(?:write|create|generate|make|build|fix|debug|explain|convert|rayi|raayi|rayandi|rasi|ivvu|cheppu)\\b|రాయి|రాయండి",
+        RegexOption.IGNORE_CASE
+    )
+    private val followUp = Regex(
+        "^(?:fix|change|add|remove|optimi[sz]e|rewrite|modify|explain|convert|make it|now make|also add)\\b",
+        RegexOption.IGNORE_CASE
+    )
+
+    private fun looksLikeCode(text: String): Boolean =
+        (codeWord.containsMatchIn(text) && codeVerb.containsMatchIn(text)) ||
+            (memory.lastCode != null && followUp.containsMatchIn(text.trim()))
+
+    private fun extractLastCode(answer: String): String? =
+        Regex("```[^\\n]*\\n(.*?)```", RegexOption.DOT_MATCHES_ALL).findAll(answer).lastOrNull()
+            ?.groupValues?.get(1)?.trimEnd()
 
     private fun validated(reply: String?, actions: List<BroAction>): PlanResult {
         for (action in actions) {

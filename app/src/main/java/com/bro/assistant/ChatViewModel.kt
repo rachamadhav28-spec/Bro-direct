@@ -32,6 +32,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     val prefs = PreferencesStore(app)
     private val memory = SessionMemory()
     private val planner = ActionPlanner(app, memory, prefs)
+    private val github = GitHubCommands(prefs)
     private val taskManager = TaskManager(app, memory, prefs)
     val tts = SpeechOutput(app, prefs)
 
@@ -191,6 +192,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
 
+        github.tryHandle(text, memory.lastCode) { q -> askConfirm(q) }?.let {
+            reply(it, BroState.SUCCESS)
+            return
+        }
+
         val plan = planner.plan(text)
         if (plan.error != null) {
             reply(plan.error, BroState.ERROR)
@@ -242,7 +248,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         state = end
         if (prefs.speakReplies) {
             tts.speak(
-                text,
+                if ("```" in text) "I've written the code. Please check the chat." else text,
                 flush = true,
                 onStart = { state = BroState.SPEAKING },
                 onDone = { settle(end, then) }

@@ -13,6 +13,10 @@ class PreferencesStore(context: Context) {
         get() = str("api_key", "")
         set(value) { sp.edit().putString("api_key", value.trim()).apply() }
 
+    var githubToken: String
+        get() = str("github_token", "")
+        set(value) { sp.edit().putString("github_token", value.trim()).apply() }
+
     var model: String
         get() = str("model", "gemini-2.5-flash")
         set(value) { sp.edit().putString("model", value.trim()).apply() }

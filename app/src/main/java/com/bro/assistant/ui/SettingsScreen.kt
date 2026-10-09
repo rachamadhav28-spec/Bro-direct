@@ -55,6 +55,7 @@ fun SettingsScreen(
     var speakReplies by remember { mutableStateOf(prefs.speakReplies) }
     var voiceLabel by remember { mutableStateOf(prefs.voiceName.ifBlank { "Default (lower pitch)" }) }
     var speechLang by remember { mutableStateOf(prefs.language) }
+    var githubToken by remember { mutableStateOf(prefs.githubToken) }
     var saved by remember { mutableStateOf(false) }
     val wakeOn = remember(tick) { prefs.wakeEnabled }
 
@@ -87,6 +88,13 @@ fun SettingsScreen(
         OutlinedTextField(
             value = model, onValueChange = { model = it; saved = false },
             label = { Text("Model name") }, singleLine = true, modifier = Modifier.fillMaxWidth()
+        )
+
+        Heading("GitHub")
+        OutlinedTextField(
+            value = githubToken, onValueChange = { githubToken = it; saved = false },
+            label = { Text("GitHub token (repo access)") }, singleLine = true,
+            visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth()
         )
 
         Heading("Messaging")
@@ -132,6 +140,7 @@ fun SettingsScreen(
         Button(onClick = {
             prefs.apiKey = apiKey
             prefs.model = model
+            prefs.githubToken = githubToken
             prefs.wakePhrases = wakePhrases
             prefs.countryCode = countryCode
             prefs.confirmBeforeSend = confirmSend

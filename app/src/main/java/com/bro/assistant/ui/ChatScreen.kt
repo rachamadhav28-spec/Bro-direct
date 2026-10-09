@@ -178,7 +178,9 @@ private fun Bubble(message: ChatMessage) {
                 )
                 .padding(horizontal = 12.dp, vertical = 8.dp)
         ) {
-            Text(message.text, color = Color.White, fontSize = 15.sp)
+            androidx.compose.foundation.text.selection.SelectionContainer {
+                Text(message.text, color = Color.White, fontSize = 15.sp)
+            }
         }
     }
 }

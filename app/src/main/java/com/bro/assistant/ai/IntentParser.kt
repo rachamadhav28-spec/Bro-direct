@@ -26,6 +26,12 @@ class IntentParser(private val memory: SessionMemory, prefs: PreferencesStore) {
         return parse(client.generate(SYSTEM_PROMPT, context))
     }
 
+    /** Free-form answer (code, explanations). Not JSON. */
+    suspend fun answerFreely(userText: String): String {
+        val context = "Recent conversation:\n" + memory.historyText() + "\n\nUser says: " + userText
+        return client.generate(CODE_PROMPT, context, json = false).trim()
+    }
+
     private fun parse(raw: String): AiPlan {
         val cleaned = raw.trim().removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
         val obj = JSONObject(cleaned)
@@ -54,6 +60,19 @@ class IntentParser(private val memory: SessionMemory, prefs: PreferencesStore) {
     }
 
     companion object {
+        private val CODE_PROMPT = """
+            You are BRO, an expert programmer who can write code in any language (Java, Kotlin, Python,
+            JavaScript, TypeScript, C, C++, C#, Go, Rust, Swift, PHP, SQL, HTML/CSS, Bash and more).
+            Rules:
+            - Put every piece of code in a fenced block with the language name, e.g. ```python.
+            - Give complete, runnable code with all imports. Check it carefully for syntax, logic and
+              edge-case errors before answering, and never leave placeholders or "..." in code.
+            - After the code, add at most 3 short lines: how to run it, and any assumption you made.
+            - If the request is unclear, ask one short question instead of guessing.
+            - The user may write English, Telugu, or Tenglish (Telugu in English letters). Answer in the
+              same language style, but keep code, identifiers and comments in English.
+        """.trimIndent()
+
         private val SYSTEM_PROMPT = """
             You are the planner for BRO, an Android voice assistant. Reply ONLY with JSON in this shape:
             {"reply": "short text", "actions": [{"type": "TYPE", "params": {"key": "value"}}]}
