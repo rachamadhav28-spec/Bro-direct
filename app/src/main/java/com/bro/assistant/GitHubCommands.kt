@@ -86,8 +86,12 @@ class GitHubCommands(private val context: Context, private val prefs: Preference
             "The AI's answer wasn't valid. Please try again."
         } catch (e: IllegalStateException) {
             e.message ?: "Something went wrong. Please try again."
+        } catch (e: java.net.SocketTimeoutException) {
+            "The AI took too long to write that. Ask for a smaller first version, then add features one step at a time."
+        } catch (e: java.net.UnknownHostException) {
+            "I couldn't reach the internet. Check your connection and try again."
         } catch (e: java.io.IOException) {
-            "I couldn't reach GitHub. Check your internet connection."
+            "A network problem stopped it (${e.javaClass.simpleName}). Please try again."
         }
     }
 

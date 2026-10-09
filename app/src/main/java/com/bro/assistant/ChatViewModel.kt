@@ -179,9 +179,14 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private suspend fun handle(text: String) {
+    private var lastCommand: String? = null
+    private val retryRx = Regex("^(?:please\\s+)?(?:try\\s+again|retry|again|do\\s+it\\s+again|once\\s+more)[.!]*$", RegexOption.IGNORE_CASE)
+
+    private suspend fun handle(shown: String) {
+        // "try again" repeats the last real command
+        val text = if (retryRx.matches(shown.trim())) (lastCommand ?: shown) else shown.also { lastCommand = it }
         tts.stop()
-        addMessage(true, text)
+        addMessage(true, shown)
         memory.addUser(text)
         state = BroState.THINKING
 

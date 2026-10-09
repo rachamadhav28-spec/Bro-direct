@@ -42,7 +42,12 @@ class GeminiClient(private val prefs: PreferencesStore) {
         json: Boolean,
         timeoutMs: Int
     ): String = withContext(Dispatchers.IO) {
-        val url = URL("https://generativelanguage.googleapis.com/v1beta/models/${prefs.model}:generateContent")
+        // Big answers stream in pieces so the connection never sits silent until the timeout.
+        val streaming = timeoutMs > 60000
+        val url = URL(
+            "https://generativelanguage.googleapis.com/v1beta/models/${prefs.model}:" +
+                if (streaming) "streamGenerateContent?alt=sse" else "generateContent"
+        )
         val conn = url.openConnection() as HttpURLConnection
         try {
             conn.requestMethod = "POST"
@@ -76,6 +81,21 @@ class GeminiClient(private val prefs: PreferencesStore) {
             conn.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
 
             val code = conn.responseCode
+            if (streaming && code in 200..299) {
+                val sb = StringBuilder()
+                conn.inputStream.bufferedReader().useLines { lines ->
+                    for (line in lines) {
+                        if (!line.startsWith("data:")) continue
+                        val data = line.removePrefix("data:").trim()
+                        if (data.isEmpty()) continue
+                        val parts = JSONObject(data).optJSONArray("candidates")?.optJSONObject(0)
+                            ?.optJSONObject("content")?.optJSONArray("parts") ?: continue
+                        for (i in 0 until parts.length()) sb.append(parts.getJSONObject(i).optString("text"))
+                    }
+                }
+                if (sb.isBlank()) throw AiException(502, "model=${prefs.model}; empty answer")
+                return@withContext sb.toString()
+            }
             val stream = if (code in 200..299) conn.inputStream else conn.errorStream
             val text = stream?.bufferedReader()?.use { it.readText() } ?: ""
             if (code !in 200..299) throw AiException(
