@@ -12,7 +12,8 @@ enum class ActionType(val retryable: Boolean = false) {
     TOGGLE_SETTING(true),
     YOUTUBE_SEARCH,
     YOUTUBE_PLAY_FIRST(true),
-    WHATSAPP_MESSAGE
+    WHATSAPP_MESSAGE,
+    AGENT_TASK
 }
 
 enum class ActionStatus { PENDING, RUNNING, SUCCESS, FAILED }

@@ -31,6 +31,12 @@ class ActionPlanner(
     suspend fun plan(text: String): PlanResult {
         extra.tryHandle(text)?.let { return PlanResult(reply = it) }
 
+        // explicit: "agent <goal>" / "inside <goal>" runs the screen-operating agent directly
+        Regex("^(?:agent|operate|inside)\\b[:,]?\\s+(.{3,})$", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
+            .find(text.trim())?.let { m ->
+                return validated("On it. I'll work inside the app.", listOf(BroAction(ActionType.AGENT_TASK, mapOf("goal" to m.groupValues[1].trim()))))
+            }
+
         local.parse(text)?.let { return validated(it.reply, it.actions) }
 
         if (prefs.apiKey.isBlank()) {

@@ -70,6 +70,24 @@ class BroAccessibilityService : AccessibilityService() {
         return withTimeoutOrNull(1500) { done.await() } ?: false
     }
 
+    private suspend fun stroke(path: Path, ms: Long): Boolean {
+        val gesture = GestureDescription.Builder()
+            .addStroke(GestureDescription.StrokeDescription(path, 0, ms)).build()
+        val done = CompletableDeferred<Boolean>()
+        val started = dispatchGesture(gesture, object : GestureResultCallback() {
+            override fun onCompleted(g: GestureDescription?) { done.complete(true) }
+            override fun onCancelled(g: GestureDescription?) { done.complete(false) }
+        }, null)
+        if (!started) return false
+        return withTimeoutOrNull(2000) { done.await() } ?: false
+    }
+
+    suspend fun tap(x: Float, y: Float): Boolean =
+        stroke(Path().apply { moveTo(x, y); lineTo(x + 1f, y) }, 60)
+
+    suspend fun swipe(x1: Float, y1: Float, x2: Float, y2: Float): Boolean =
+        stroke(Path().apply { moveTo(x1, y1); lineTo(x2, y2) }, 350)
+
     override fun onInterrupt() {}
 
     override fun onUnbind(intent: android.content.Intent?): Boolean {

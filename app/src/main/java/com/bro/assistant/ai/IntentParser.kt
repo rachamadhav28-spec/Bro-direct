@@ -93,6 +93,11 @@ class IntentParser(private val memory: SessionMemory, prefs: PreferencesStore) {
             YOUTUBE_SEARCH {query}
             YOUTUBE_PLAY_FIRST
             WHATSAPP_MESSAGE {contact, message}
+            AGENT_TASK {goal}  = do real work INSIDE any app by looking at its screen and tapping/typing/scrolling.
+              Use it for anything the actions above cannot do, e.g. "in Instagram open my latest message",
+              "order a coffee in Swiggy", "in Settings change the wallpaper", "check my last SMS", "in Chrome search X
+              and read the first result", "in Gmail open the newest email". goal = one clear English sentence with every
+              detail the user gave (names, texts, items). Prefer the specific actions above when they fit.
 
             Language: the user may speak or type English, Telugu (తెలుగు script), Tenglish (Telugu written in
             English letters, e.g. "whatsapp open chey", "ammulu akka ki hi cheppu", "wifi off cheyyi"), or a mix.

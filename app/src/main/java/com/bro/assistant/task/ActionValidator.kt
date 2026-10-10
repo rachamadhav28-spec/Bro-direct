@@ -28,6 +28,8 @@ object ActionValidator {
             else if (a.param("message").isBlank()) "What should the message say?"
             else if (a.param("message").length > 1000) "That message is too long."
             else null
+        ActionType.AGENT_TASK ->
+            if (a.param("goal").isBlank()) "What should I do inside the app?" else if (a.param("goal").length > 600) "That task is too long." else null
         else -> null
     }
 }

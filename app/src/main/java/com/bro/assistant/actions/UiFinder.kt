@@ -10,6 +10,9 @@ import kotlinx.coroutines.delay
 /** Helpers for finding and tapping things on screen through the Accessibility service. */
 object UiFinder {
 
+    /** Everything currently on screen, in reading order. */
+    fun snapshot(): List<AccessibilityNodeInfo> = allNodes()
+
     private fun allNodes(): List<AccessibilityNodeInfo> {
         val root = BroAccessibilityService.instance?.rootInActiveWindow ?: return emptyList()
         val out = ArrayList<AccessibilityNodeInfo>()

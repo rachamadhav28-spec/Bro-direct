@@ -30,6 +30,7 @@ class TaskManager(
     private val device = DeviceControl(context)
     private val messaging = MessagingActions(context, prefs)
     private val youtube = YouTubeActions(context)
+    private val agent = com.bro.assistant.actions.AppAgent(context, prefs)
 
     suspend fun run(actions: List<BroAction>, confirm: suspend (String) -> Boolean): TaskOutcome {
         steps.clear()
@@ -93,6 +94,11 @@ class TaskManager(
                     r
                 }
                 ActionType.YOUTUBE_PLAY_FIRST -> youtube.playFirstResult()
+                ActionType.AGENT_TASK -> agent.run(a.param("goal"), confirm) { note ->
+                    // live progress lines under the plan (keep the list short)
+                    if (steps.size > 12) steps.removeAt(1)
+                    steps.add(StepUi(note, ActionStatus.SUCCESS))
+                }
                 ActionType.WHATSAPP_MESSAGE -> {
                     val contact = a.param("contact")
                     val message = a.param("message")
@@ -126,5 +132,6 @@ class TaskManager(
         ActionType.YOUTUBE_SEARCH -> "Search YouTube for ${a.param("query")}"
         ActionType.YOUTUBE_PLAY_FIRST -> "Play the first result"
         ActionType.WHATSAPP_MESSAGE -> "Send message to ${a.param("contact")}"
+        ActionType.AGENT_TASK -> "Working inside apps: ${a.param("goal").take(40)}"
     }
 }
