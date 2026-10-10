@@ -208,7 +208,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         state = BroState.THINKING
 
         // direct system commands (volume, mute, ultra game mode): no Settings screen, no planner
-        val direct = SystemControls.handle(app, text) { later ->
+        val direct = com.bro.assistant.actions.PhoneFunctions.handle(app, text) { later ->
+            reply(later, BroState.SUCCESS)
+        } ?: SystemControls.handle(app, text) { later ->
             reply(later, BroState.SUCCESS)
         }
         if (direct != null) {
