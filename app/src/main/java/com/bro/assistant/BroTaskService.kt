@@ -15,6 +15,11 @@ class BroTaskService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_STOP) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+            return START_NOT_STICKY
+        }
         val text = intent?.getStringExtra("text") ?: "Working on your task"
         val notification = TaskNotifier.ongoing(this, text)
         if (Build.VERSION.SDK_INT >= 29) {
@@ -27,6 +32,7 @@ class BroTaskService : Service() {
 
     companion object {
         const val NOTIFICATION_ID = 2001
+        const val ACTION_STOP = "com.bro.assistant.STOP_TASK"
 
         fun start(context: Context, text: String) {
             try {
@@ -39,7 +45,13 @@ class BroTaskService : Service() {
         }
 
         fun stop(context: Context) {
-            context.stopService(Intent(context, BroTaskService::class.java))
+            // Sent as a normal intent so it is handled after the start intent (stopping at once
+            // after startForegroundService() crashes the app when the task finishes quickly).
+            try {
+                context.startService(Intent(context, BroTaskService::class.java).setAction(ACTION_STOP))
+            } catch (e: Exception) {
+                runCatching { context.stopService(Intent(context, BroTaskService::class.java)) }
+            }
         }
     }
 }

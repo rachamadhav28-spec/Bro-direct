@@ -26,14 +26,54 @@ class GeminiClient(private val prefs: PreferencesStore) {
     ): String {
         val waits = longArrayOf(2000, 6000, 15000)
         var attempt = 0
+        var modelSwitched = false
         while (true) {
             try {
                 return generateOnce(system, user, json, timeoutMs)
             } catch (e: AiException) {
+                // Google retired this model for this key: pick one that works and try again.
+                if (e.code == 404 && !modelSwitched && switchModel()) { modelSwitched = true; continue }
                 if (e.code !in listOf(429, 500, 502, 503, 504) || attempt >= waits.size) throw e
                 delay(waits[attempt++])
             }
         }
+    }
+
+    /** Asks Google which models this key can use and saves the best fast one. */
+    private suspend fun switchModel(): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val conn = URL("https://generativelanguage.googleapis.com/v1beta/models?pageSize=200")
+                .openConnection() as HttpURLConnection
+            conn.connectTimeout = 15000
+            conn.readTimeout = 20000
+            conn.setRequestProperty("x-goog-api-key", prefs.apiKey)
+            val text = try {
+                if (conn.responseCode !in 200..299) return@withContext false
+                conn.inputStream.bufferedReader().readText()
+            } finally { conn.disconnect() }
+            val arr = JSONObject(text).optJSONArray("models") ?: return@withContext false
+            val names = ArrayList<String>()
+            for (i in 0 until arr.length()) {
+                val m = arr.getJSONObject(i)
+                val methods = m.optJSONArray("supportedGenerationMethods") ?: continue
+                if ((0 until methods.length()).none { methods.getString(it) == "generateContent" }) continue
+                val n = m.getString("name").removePrefix("models/")
+                if (n.startsWith("gemini") && !n.contains("embed") && !n.contains("image") &&
+                    !n.contains("tts") && !n.contains("live") && !n.contains("audio") &&
+                    !n.contains("robotics") && !n.contains("computer-use")
+                ) names.add(n)
+            }
+            fun ver(n: String) = Regex("gemini-(\\d+(?:\\.\\d+)?)").find(n)?.groupValues?.get(1)?.toDoubleOrNull() ?: 0.0
+            // newest version first; among those prefer plain "flash", then other flash, then the rest
+            val best = names.sortedWith(
+                compareByDescending<String> { ver(it) }
+                    .thenBy { if (it.endsWith("-flash")) 0 else if (it.contains("flash") && !it.contains("lite")) 1 else if (it.contains("flash")) 2 else 3 }
+                    .thenBy { if (it.contains("preview") || it.contains("exp")) 1 else 0 }
+            ).firstOrNull() ?: return@withContext false
+            if (best == prefs.model) return@withContext false
+            prefs.model = best
+            true
+        } catch (e: Exception) { false }
     }
 
     private suspend fun generateOnce(

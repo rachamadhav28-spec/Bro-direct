@@ -34,20 +34,20 @@ class SpeechInput(
             override fun onEndOfSpeech() {}
             override fun onEvent(eventType: Int, params: Bundle?) {}
 
-            override fun onPartialResults(partialResults: Bundle?) {
+            override fun onPartialResults(partialResults: Bundle?) = safely {
                 val text = partialResults
                     ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
                 if (!text.isNullOrBlank()) onPartial(text)
             }
 
-            override fun onResults(results: Bundle?) {
+            override fun onResults(results: Bundle?) = safely {
                 val text = results
                     ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
                 if (text.isNullOrBlank()) onProblem("I didn't catch that. Tap the mic and try again.")
                 else onFinal(text)
             }
 
-            override fun onError(error: Int) {
+            override fun onError(error: Int) = safely {
                 when (error) {
                     SpeechRecognizer.ERROR_CLIENT -> {} // we cancelled it ourselves
                     SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT ->
@@ -71,6 +71,12 @@ class SpeechInput(
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
         }
         r.startListening(intent)
+    }
+
+    private fun safely(block: () -> Unit) {
+        try { block() } catch (e: Exception) {
+            com.bro.assistant.ErrorHandler.log("SpeechInput", "callback failed", e)
+        }
     }
 
     fun stop() {

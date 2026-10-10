@@ -149,18 +149,18 @@ fun ChatScreen(
                 value = input,
                 onValueChange = { input = it },
                 modifier = Modifier.weight(1f),
-                placeholder = { Text("Type a command") },
+                placeholder = { Text("Type") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                 keyboardActions = KeyboardActions(onSend = { submit() })
             )
-            Button(onClick = { submit() }) { Text("Send") }
             Button(
                 onClick = onMic,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = if (vm.state == BroState.LISTENING) BroColors.Listening else BroColors.Accent
                 )
             ) { Text(if (vm.state == BroState.LISTENING) "Stop" else "Mic") }
+            Button(onClick = { submit() }) { Text("Send") }
         }
     }
 

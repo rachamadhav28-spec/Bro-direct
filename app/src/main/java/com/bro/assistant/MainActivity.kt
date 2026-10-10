@@ -56,6 +56,18 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
+        val crashPrefs = getSharedPreferences("bro_crash", MODE_PRIVATE)
+        val previous = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { t, e ->
+            try {
+                crashPrefs.edit().putString("last", (e.toString() + "\n" + e.stackTrace.take(4).joinToString("\n")).take(600)).commit()
+            } catch (_: Throwable) {}
+            previous?.uncaughtException(t, e)
+        }
+        crashPrefs.getString("last", null)?.let {
+            crashPrefs.edit().remove("last").apply()
+            vm.reportCrash(it)
+        }
         handleWake(intent)
 
         setContent {

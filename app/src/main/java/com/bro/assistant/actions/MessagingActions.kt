@@ -58,7 +58,14 @@ class MessagingActions(private val context: Context, private val prefs: Preferen
             ?: return ActionResult.fail("I opened the chat with $contact but couldn't find the Send button.")
         if (!UiFinder.click(sendButton)) return ActionResult.fail("I found the Send button but couldn't tap it.")
 
-        val sent = UiFinder.waitFor(4000) { UiFinder.findExact("Send") == null }
+        // Only report success when WhatsApp is still on screen, the Send button is gone and the
+        // typed text has left the input box (so a blocked or half-finished send is not reported as sent).
+        val probe = message.trim().take(12)
+        val sent = UiFinder.waitFor(6000) {
+            BroAccessibilityService.currentPackage.startsWith("com.whatsapp") &&
+                UiFinder.findExact("Send") == null &&
+                (UiFinder.findEditable()?.text?.toString()?.contains(probe) != true)
+        }
         return if (sent) ActionResult.ok("Message sent to $contact.")
         else ActionResult.fail("I tapped Send, but WhatsApp still shows the message waiting. Please check the chat.")
     }

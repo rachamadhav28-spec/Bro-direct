@@ -102,7 +102,7 @@ private val CLOUD = Color(0xFF38404D)
 
 @Composable
 fun DinoThinking(label: String = "Thinking") {
-    val unit = with(LocalDensity.current) { 2.5.dp.toPx() }
+    val unit = with(LocalDensity.current) { 1.25.dp.toPx() }
     var widthPx by remember { mutableStateOf(0f) }
     var frame by remember { mutableStateOf(0L) }
     val game = remember { DinoState() }
@@ -127,21 +127,21 @@ fun DinoThinking(label: String = "Thinking") {
 
     Column(
         Modifier
-            .fillMaxWidth()
-            .background(CARD, RoundedCornerShape(14.dp))
-            .padding(10.dp)
+            .fillMaxWidth(0.5f)
+            .background(CARD, RoundedCornerShape(10.dp))
+            .padding(6.dp)
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(label + dots, color = Color.LightGray, fontSize = 13.sp)
+            Text(label + dots, color = Color.LightGray, fontSize = 10.sp)
             Text(
                 "%05d".format(game.score.toInt()),
-                color = GROUND, fontSize = 13.sp, fontFamily = FontFamily.Monospace
+                color = GROUND, fontSize = 10.sp, fontFamily = FontFamily.Monospace
             )
         }
         Canvas(
             Modifier
                 .fillMaxWidth()
-                .height(150.dp)
+                .height(75.dp)
                 .onSizeChanged { widthPx = it.width.toFloat() }
         ) {
             val f = frame // read so the canvas redraws every frame

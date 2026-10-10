@@ -308,6 +308,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         addMessage(false, "New conversation. I'm ready.")
     }
 
+    fun reportCrash(info: String) {
+        addMessage(false, "BRO closed unexpectedly last time. Please send this to the developer:\n$info")
+    }
+
     fun notifyPermissionDenied() {
         addMessage(false, "Without that permission I can't do this. You can allow it later in Settings.")
     }
