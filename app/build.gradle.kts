@@ -19,6 +19,16 @@ android {
         buildConfigField("int", "BUILD_NUMBER", buildNumber.toString())
     }
 
+    signingConfigs {
+        // One fixed key for every build, so a new APK installs over the old app and keeps your settings.
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
