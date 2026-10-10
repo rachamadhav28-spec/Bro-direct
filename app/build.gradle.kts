@@ -6,6 +6,12 @@ plugins {
 
 val buildNumber = (project.findProperty("buildNumber") as String?)?.toIntOrNull() ?: 1
 
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+    }
+}
+
 android {
     packaging {
         jniLibs { pickFirsts += setOf("**/libc++_shared.so") }
@@ -42,10 +48,6 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-    }
-
-    kotlinOptions {
-        jvmTarget = "17"
     }
 
     buildFeatures {
