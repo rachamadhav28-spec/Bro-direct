@@ -47,10 +47,10 @@ class ActionPlanner(
 
         local.parse(text)?.let { return validated(it.reply, it.actions) }
 
-        if (prefs.apiKey.isBlank()) {
+        if (!prefs.hasBrain()) {
             return PlanResult(
-                error = "I couldn't understand that as a simple command, and no AI key is set. " +
-                    "Add a Gemini API key in Settings, or try a simpler command."
+                error = "I couldn't understand that as a simple command, and no AI is set up. " +
+                    "Add a Gemini API key or install the offline brain in Settings, or try a simpler command."
             )
         }
         if (looksLikeCode(text)) {

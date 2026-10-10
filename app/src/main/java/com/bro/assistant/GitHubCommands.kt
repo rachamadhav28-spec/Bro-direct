@@ -189,7 +189,7 @@ class GitHubCommands(private val context: Context, private val prefs: Preference
     }
 
     private suspend fun editWithAi(path: String, repo: String, instruction: String, confirm: suspend (String) -> Boolean): String {
-        if (prefs.apiKey.isBlank()) return "Add your Gemini API key in Settings first."
+        if (!prefs.hasBrain()) return "Add your Gemini API key or install the offline brain in Settings first."
         val original = client.readFile(repo, path)
         val answer = GeminiClient(prefs).generate(
             "You edit one source file. Apply the user's instruction and return the COMPLETE updated file in a single " +

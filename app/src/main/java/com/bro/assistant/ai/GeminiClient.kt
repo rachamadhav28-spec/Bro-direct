@@ -17,12 +17,34 @@ import java.net.URL
  */
 class GeminiClient(private val prefs: PreferencesStore) {
 
-    /** Retries when Google says it is overloaded (429, 500, 502, 503, 504). */
+    /**
+     * Picks the brain: the offline model when it is installed and chosen (or there is no API key),
+     * otherwise Gemini, with the offline model as backup when there is no internet or Gemini fails.
+     */
     suspend fun generate(
         system: String,
         user: String,
         json: Boolean = true,
         timeoutMs: Int = if (json) 30000 else 90000
+    ): String {
+        if (LocalLlm.willUse(prefs)) return LocalLlm.generate(prefs, system, user, json)
+        try {
+            return generateRemote(system, user, json, timeoutMs)
+        } catch (e: java.io.IOException) {
+            if (LocalLlm.isInstalled(prefs.appContext)) return LocalLlm.generate(prefs, system, user, json)
+            throw e
+        } catch (e: AiException) {
+            if (LocalLlm.isInstalled(prefs.appContext)) return LocalLlm.generate(prefs, system, user, json)
+            throw e
+        }
+    }
+
+    /** Retries when Google says it is overloaded (429, 500, 502, 503, 504). */
+    private suspend fun generateRemote(
+        system: String,
+        user: String,
+        json: Boolean,
+        timeoutMs: Int
     ): String {
         val waits = longArrayOf(2000, 6000, 15000)
         var attempt = 0

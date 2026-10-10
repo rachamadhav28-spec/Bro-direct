@@ -5,6 +5,8 @@ import android.content.Context
 /** Simple settings storage. The API key lives only on this phone, never in the source code. */
 class PreferencesStore(context: Context) {
 
+    val appContext: Context = context.applicationContext
+
     private val sp = context.applicationContext.getSharedPreferences("bro_prefs", Context.MODE_PRIVATE)
 
     private fun str(key: String, def: String): String = sp.getString(key, def) ?: def
@@ -16,6 +18,18 @@ class PreferencesStore(context: Context) {
     var githubToken: String
         get() = str("github_token", "")
         set(value) { sp.edit().putString("github_token", value.trim()).apply() }
+
+    /** "auto" = Gemini when online, offline model as backup; "offline" = only the offline model. */
+    var brainMode: String
+        get() = str("brain_mode", "auto")
+        set(value) { sp.edit().putString("brain_mode", value).apply() }
+
+    var localModelName: String
+        get() = str("local_model_name", "")
+        set(value) { sp.edit().putString("local_model_name", value).apply() }
+
+    /** True when BRO has some AI to think with: a Gemini key or an installed offline model. */
+    fun hasBrain(): Boolean = apiKey.isNotBlank() || com.bro.assistant.ai.LocalLlm.isInstalled(appContext)
 
     var model: String
         get() = str("model", "gemini-2.5-flash")

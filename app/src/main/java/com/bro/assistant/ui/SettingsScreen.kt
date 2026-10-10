@@ -90,6 +90,9 @@ fun SettingsScreen(
             label = { Text("Model name") }, singleLine = true, modifier = Modifier.fillMaxWidth()
         )
 
+        Heading("Offline brain (no internet, no API key)")
+        OfflineBrainSection(prefs)
+
         Heading("GitHub")
         OutlinedTextField(
             value = githubToken, onValueChange = { githubToken = it; saved = false },
