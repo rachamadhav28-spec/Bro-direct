@@ -166,22 +166,43 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     // ---------- commands ----------
 
+    private val queue = ArrayDeque<String>()
+    private var currentJob: kotlinx.coroutines.Job? = null
+    private val stopRx = Regex("^(?:stop|cancel|abort|stop (?:the )?task|cancel (?:the )?task|stop everything|nilupu|aapu)[.!]*$", RegexOption.IGNORE_CASE)
+
     fun send(raw: String) {
         val text = raw.trim()
         if (text.isEmpty()) return
         if (busy) {
-            addMessage(false, "I'm still working on the last task. One moment.")
+            if (stopRx.matches(text)) { cancelAll(); return }
+            // keep working: line the new command up behind the current one
+            queue.addLast(text)
+            addMessage(true, text)
+            addMessage(false, "Queued (${queue.size} waiting). I'll do it right after the current task. Say \"stop\" to cancel everything.")
             return
         }
+        launchTask(text, echo = true)
+    }
+
+    private fun cancelAll() {
+        queue.clear()
+        currentJob?.cancel()
+        taskManager.steps.clear()
+        confirmDeferred?.complete(false)
+        addMessage(false, "Stopped.")
+        state = BroState.IDLE
+    }
+
+    private fun launchTask(text: String, echo: Boolean) {
         busy = true
         lastReply = null
         // Runs in a process-wide scope with a foreground service, so the task keeps going when you
         // leave the app, and you get a notification when it is done.
         BroTaskService.start(app, "BRO is working on: " + text.take(60))
-        taskScope.launch {
+        currentJob = taskScope.launch {
             try {
-                handle(text)
-                if (!appVisible) lastReply?.let { TaskNotifier.notifyDone(app, it.take(150)) }
+                handle(text, echo)
+                if (!appVisible && queue.isEmpty()) lastReply?.let { TaskNotifier.notifyDone(app, it.take(150)) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -189,8 +210,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 reply(ErrorHandler.friendly(e), BroState.ERROR)
                 if (!appVisible) TaskNotifier.notifyDone(app, ErrorHandler.friendly(e).take(150))
             } finally {
-                BroTaskService.stop(app)
                 busy = false
+                val next = queue.removeFirstOrNull()
+                if (next != null) launchTask(next, echo = false) else BroTaskService.stop(app)
             }
         }
     }
@@ -199,50 +221,83 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private var lastCommand: String? = null
     private val retryRx = Regex("^(?:please\\s+)?(?:try\\s+again|retry|again|do\\s+it\\s+again|once\\s+more)[.!]*$", RegexOption.IGNORE_CASE)
 
-    private suspend fun handle(shown: String) {
+    private class StepOutcome(val success: Boolean, val message: String, val end: BroState)
+
+    private suspend fun handle(shown: String, echo: Boolean = true) {
         // "try again" repeats the last real command
         val text = if (retryRx.matches(shown.trim())) (lastCommand ?: shown) else shown.also { lastCommand = it }
         tts.stop()
-        addMessage(true, shown)
-        memory.addUser(text)
+        if (echo) addMessage(true, shown)
         state = BroState.THINKING
 
-        // direct system commands (volume, mute, ultra game mode): no Settings screen, no planner
-        val direct = com.bro.assistant.actions.PhoneFunctions.handle(app, text) { later ->
-            reply(later, BroState.SUCCESS)
-        } ?: SystemControls.handle(app, text) { later ->
-            reply(later, BroState.SUCCESS)
-        }
-        if (direct != null) {
-            reply(direct, BroState.SUCCESS)
+        val parts = com.bro.assistant.task.TaskChain.split(text)
+        if (parts.size > 1) {
+            runChain(parts)
             return
+        }
+        memory.addUser(text)
+        val o = runCommand(text, quiet = false)
+        reply(o.message, o.end)
+    }
+
+    /** Several steps in order. Each step uses the same brain as a single command; stops at the first failure. */
+    private suspend fun runChain(parts: List<String>) {
+        taskManager.steps.clear()
+        parts.forEach { taskManager.steps.add(StepUi(it.take(48), ActionStatus.PENDING)) }
+        fun mark(i: Int, st: ActionStatus, note: String?) {
+            if (i in taskManager.steps.indices) taskManager.steps[i] = StepUi(taskManager.steps[i].label, st, note)
+        }
+        memory.addUser(parts.joinToString(", then "))
+        addMessage(false, "I'll do this in ${parts.size} steps.")
+        state = BroState.EXECUTING
+        val lines = ArrayList<String>()
+        var failedAt = -1
+        for ((i, part) in parts.withIndex()) {
+            mark(i, ActionStatus.RUNNING, null)
+            BroTaskService.update(app, "Step ${i + 1} of ${parts.size}: ${part.take(40)}")
+            state = BroState.EXECUTING
+            val o = runCommand(part, quiet = true)
+            mark(i, if (o.success) ActionStatus.SUCCESS else ActionStatus.FAILED, o.message.take(120))
+            lines.add("${i + 1}) ${part.take(40)}: ${o.message.take(110)}")
+            if (!o.success) { failedAt = i; break }
+            delay(900) // let the screen settle before the next step
+        }
+        val text = if (failedAt < 0) "All ${parts.size} steps done.\n" + lines.joinToString("\n")
+        else "I stopped at step ${failedAt + 1} of ${parts.size}.\n" + lines.joinToString("\n")
+        reply(text, if (failedAt < 0) BroState.SUCCESS else BroState.ERROR)
+    }
+
+    /** One command through the whole pipeline: direct controls, GitHub, then the planner (and agent). */
+    private suspend fun runCommand(text: String, quiet: Boolean): StepOutcome {
+        // direct phone functions (volume, brightness, lock, tiles...): no planner, no AI
+        val later = CompletableDeferred<String>()
+        val direct = com.bro.assistant.actions.PhoneFunctions.handle(app, text) { later.complete(it) }
+            ?: SystemControls.handle(app, text) { later.complete(it) }
+        if (direct != null) {
+            // tile toggles answer "Okay" first and finish a moment later: wait for the real result
+            val msg = if (direct.trim('.').equals("Okay", true)) withTimeoutOrNull(9000L) { later.await() } ?: direct else direct
+            return StepOutcome(true, msg, BroState.SUCCESS)
         }
 
         github.tryHandle(text, memory.lastCode) { q -> askConfirm(q) }?.let {
-            reply(it, BroState.SUCCESS)
-            return
+            return StepOutcome(true, it, BroState.SUCCESS)
         }
 
         val plan = planner.plan(text)
-        if (plan.error != null) {
-            reply(plan.error, BroState.ERROR)
-            return
-        }
-        if (plan.actions.isEmpty()) {
-            reply(plan.reply ?: "I'm not sure what to do with that.", BroState.IDLE)
-            return
-        }
+        if (plan.error != null) return StepOutcome(false, plan.error, BroState.ERROR)
+        if (plan.actions.isEmpty()) return StepOutcome(true, plan.reply ?: "I'm not sure what to do with that.", BroState.IDLE)
 
-        val ack = plan.reply ?: "Working on it."
-        addMessage(false, ack)
-        memory.addBro(ack)
-        if (prefs.speakReplies) tts.speak(ack, flush = false)
+        if (!quiet) {
+            val ack = plan.reply ?: "Working on it."
+            addMessage(false, ack)
+            memory.addBro(ack)
+            if (prefs.speakReplies) tts.speak(ack, flush = false)
+        }
         state = BroState.EXECUTING
 
-        val outcome = taskManager.run(plan.actions) { question -> askConfirm(question) }
-
+        val outcome = taskManager.run(plan.actions, showSteps = !quiet) { question -> askConfirm(question) }
         if (outcome.needsPermission != null) permissionNeeded = outcome.needsPermission
-        reply(outcome.summary, if (outcome.success) BroState.SUCCESS else BroState.ERROR)
+        return StepOutcome(outcome.success, outcome.summary, if (outcome.success) BroState.SUCCESS else BroState.ERROR)
     }
 
     private suspend fun askConfirm(question: String): Boolean {

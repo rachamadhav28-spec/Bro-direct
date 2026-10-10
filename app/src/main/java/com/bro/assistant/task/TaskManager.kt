@@ -18,12 +18,14 @@ import kotlinx.coroutines.delay
  * and only reports success when every step succeeded.
  */
 class TaskManager(
-    context: Context,
+    private val context: Context,
     private val memory: SessionMemory,
     private val prefs: PreferencesStore
 ) {
     /** Live progress shown on screen. */
     val steps = mutableStateListOf<StepUi>()
+    private val hidden = mutableStateListOf<StepUi>()
+    private var target = steps
 
     private val apps = AppLauncher(context)
     private val phone = PhoneActions(context)
@@ -32,9 +34,11 @@ class TaskManager(
     private val youtube = YouTubeActions(context)
     private val agent = com.bro.assistant.actions.AppAgent(context, prefs)
 
-    suspend fun run(actions: List<BroAction>, confirm: suspend (String) -> Boolean): TaskOutcome {
-        steps.clear()
-        actions.forEach { steps.add(StepUi(label(it), ActionStatus.PENDING)) }
+    suspend fun run(actions: List<BroAction>, showSteps: Boolean = true, confirm: suspend (String) -> Boolean): TaskOutcome {
+        // inside a multi-step chain the chain owns the on-screen list, so this run uses a hidden one
+        target = if (showSteps) steps else hidden
+        target.clear()
+        actions.forEach { target.add(StepUi(label(it), ActionStatus.PENDING)) }
         val caveats = mutableListOf<String>()
 
         for ((index, action) in actions.withIndex()) {
@@ -68,7 +72,7 @@ class TaskManager(
     }
 
     private fun setStep(index: Int, status: ActionStatus, note: String?) {
-        if (index in steps.indices) steps[index] = StepUi(steps[index].label, status, note)
+        if (index in target.indices) target[index] = StepUi(target[index].label, status, note)
     }
 
     private suspend fun execute(a: BroAction, confirm: suspend (String) -> Boolean): ActionResult {
@@ -96,8 +100,9 @@ class TaskManager(
                 ActionType.YOUTUBE_PLAY_FIRST -> youtube.playFirstResult()
                 ActionType.AGENT_TASK -> agent.run(a.param("goal"), confirm) { note ->
                     // live progress lines under the plan (keep the list short)
-                    if (steps.size > 12) steps.removeAt(1)
-                    steps.add(StepUi(note, ActionStatus.SUCCESS))
+                    if (target.size > 12 && target.size > 1) target.removeAt(1)
+                    target.add(StepUi(note, ActionStatus.SUCCESS))
+                    com.bro.assistant.BroTaskService.update(context, "BRO: $note")
                 }
                 ActionType.WHATSAPP_MESSAGE -> {
                     val contact = a.param("contact")

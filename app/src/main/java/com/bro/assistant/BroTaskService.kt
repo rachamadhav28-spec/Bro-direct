@@ -12,6 +12,13 @@ import com.bro.assistant.task.TaskNotifier
 /** Keeps BRO alive (with a notification) while a task runs and the screen is not visible. */
 class BroTaskService : Service() {
 
+    private var wake: android.os.PowerManager.WakeLock? = null
+
+    override fun onDestroy() {
+        try { wake?.let { if (it.isHeld) it.release() } } catch (_: Exception) {}
+        super.onDestroy()
+    }
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -19,6 +26,11 @@ class BroTaskService : Service() {
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
             return START_NOT_STICKY
+        }
+        if (wake == null) {
+            // keep the CPU awake while BRO works, even with the screen off (released after at most 15 minutes)
+            val pm = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+            wake = pm.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "bro:task").also { it.acquire(15 * 60_000L) }
         }
         val text = intent?.getStringExtra("text") ?: "Working on your task"
         val notification = TaskNotifier.ongoing(this, text)
@@ -42,6 +54,14 @@ class BroTaskService : Service() {
             } catch (e: Exception) {
                 ErrorHandler.log("BroTaskService", "could not start foreground service", e)
             }
+        }
+
+        /** Changes the text of the running notification (live progress). */
+        fun update(context: Context, text: String) {
+            try {
+                val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+                nm.notify(NOTIFICATION_ID, TaskNotifier.ongoing(context, text.take(100)))
+            } catch (_: Exception) {}
         }
 
         fun stop(context: Context) {

@@ -40,6 +40,25 @@ class AppAgent(
             )
         if (!prefs.hasBrain()) return ActionResult.fail("Working inside apps needs an AI: add a Gemini API key or install the offline brain in Settings.")
 
+        // keep the screen on while BRO works inside other apps (released when done, at most 7 minutes)
+        @Suppress("DEPRECATION")
+        val screenLock = (context.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager).newWakeLock(
+            android.os.PowerManager.SCREEN_DIM_WAKE_LOCK or android.os.PowerManager.ACQUIRE_CAUSES_WAKEUP, "bro:agent"
+        )
+        try { screenLock.acquire(7 * 60_000L) } catch (_: Exception) {}
+        try {
+            return runSteps(goal, confirm, progress, service)
+        } finally {
+            try { if (screenLock.isHeld) screenLock.release() } catch (_: Exception) {}
+        }
+    }
+
+    private suspend fun runSteps(
+        goal: String,
+        confirm: suspend (String) -> Boolean,
+        progress: (String) -> Unit,
+        service: BroAccessibilityService
+    ): ActionResult {
         val apps = AppKnowledge.installedApps(context)
         val history = ArrayList<String>()
         var lastSig = ""
