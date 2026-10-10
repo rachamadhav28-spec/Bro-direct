@@ -1,6 +1,9 @@
 package com.bro.assistant.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -72,10 +75,10 @@ fun ChatScreen(
         }
     }
 
+    FuturisticBackground {
     Column(
         Modifier
             .fillMaxSize()
-            .background(BroColors.Background)
             .systemBarsPadding()
             .imePadding()
             .padding(horizontal = 12.dp)
@@ -86,7 +89,14 @@ fun ChatScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(verticalAlignment = Alignment.Bottom) {
-                Text("BRO", color = BroColors.Accent, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                val glow = breathing()
+                Text(
+                    "BRO", fontSize = 26.sp, fontWeight = FontWeight.Black, letterSpacing = 4.sp,
+                    style = androidx.compose.ui.text.TextStyle(
+                        brush = neonBrush(),
+                        shadow = androidx.compose.ui.graphics.Shadow(NeonCyan.copy(alpha = 0.4f + 0.5f * glow), blurRadius = 14f + 14f * glow)
+                    )
+                )
                 Text(
                     "  build " + com.bro.assistant.BuildConfig.BUILD_NUMBER,
                     color = Color.Gray, fontSize = 11.sp, modifier = Modifier.padding(bottom = 3.dp)
@@ -151,6 +161,18 @@ fun ChatScreen(
                 modifier = Modifier.weight(1f),
                 placeholder = { Text("Type") },
                 singleLine = true,
+                shape = RoundedCornerShape(14.dp),
+                colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = NeonCyan,
+                    unfocusedBorderColor = NeonCyan.copy(alpha = 0.35f),
+                    cursorColor = NeonCyan,
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White,
+                    focusedPlaceholderColor = Color.Gray,
+                    unfocusedPlaceholderColor = Color.Gray,
+                    focusedContainerColor = Color(0x6608162B),
+                    unfocusedContainerColor = Color(0x4D08162B)
+                ),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                 keyboardActions = KeyboardActions(onSend = { submit() })
             )
@@ -162,6 +184,7 @@ fun ChatScreen(
             ) { Text(if (vm.state == BroState.LISTENING) "Stop" else "Mic") }
             Button(onClick = { submit() }) { Text("Send") }
         }
+    }
     }
 
     vm.confirmPrompt?.let { question ->
@@ -177,17 +200,27 @@ fun ChatScreen(
 
 @Composable
 private fun Bubble(message: ChatMessage) {
+    val appear = remember { androidx.compose.animation.core.Animatable(0f) }
+    LaunchedEffect(Unit) { appear.animateTo(1f, androidx.compose.animation.core.tween(380)) }
+    val accent = if (message.fromUser) NeonViolet else NeonCyan
+    val shape = RoundedCornerShape(16.dp)
     Row(
-        Modifier.fillMaxWidth(),
+        Modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                alpha = appear.value
+                translationY = (1f - appear.value) * 28f
+            },
         horizontalArrangement = if (message.fromUser) Arrangement.End else Arrangement.Start
     ) {
         Box(
             Modifier
                 .widthIn(max = 290.dp)
                 .background(
-                    if (message.fromUser) BroColors.UserBubble else BroColors.BroBubble,
-                    RoundedCornerShape(14.dp)
+                    Brush.linearGradient(listOf(accent.copy(alpha = 0.20f), Color(0xCC0B1426))),
+                    shape
                 )
+                .border(1.dp, Brush.linearGradient(listOf(accent.copy(alpha = 0.9f), accent.copy(alpha = 0.15f))), shape)
                 .padding(horizontal = 12.dp, vertical = 8.dp)
         ) {
             MessageBody(message.text)

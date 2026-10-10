@@ -1,6 +1,7 @@
 package com.bro.assistant.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -22,7 +23,8 @@ fun TaskProgressCard(steps: List<StepUi>, modifier: Modifier = Modifier) {
     Column(
         modifier
             .fillMaxWidth()
-            .background(BroColors.Panel, RoundedCornerShape(12.dp))
+            .background(Color(0xB30B1426), RoundedCornerShape(12.dp))
+            .border(1.dp, NeonCyan.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
             .padding(10.dp)
     ) {
         for (step in steps) {
