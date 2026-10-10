@@ -73,20 +73,28 @@ class SpeechOutput(context: Context, private val prefs: PreferencesStore) {
             val voice: Voice? =
                 if (wanted.isNotBlank()) t.voices?.firstOrNull { it.name == wanted } else guessMale(t)
             if (voice != null) t.setVoice(voice)
-            t.setPitch(if (voice != null && wanted.isNotBlank()) 1.0f else 0.8f)
-            t.setSpeechRate(1.0f)
+            // a manually chosen voice is left as is; a guessed male voice gets a slightly deeper tone,
+            // and when no male voice exists the default voice is pitched down to sound like a man
+            t.setPitch(if (wanted.isNotBlank()) 1.0f else if (voice != null) 0.85f else 0.7f)
+            t.setSpeechRate(0.95f)
         } catch (e: Exception) {
             ErrorHandler.log("SpeechOutput", "voice setup failed", e)
         }
     }
 
+    // Google voices have codes in their names; these are the usual deep male ones.
+    private val maleCodes = listOf("-iom-", "-tpd-", "-iol-", "-end-", "-enb-", "-gbd-", "-aub-", "-ahm-", "-tem-", "-hid-")
+
     private fun guessMale(t: TextToSpeech): Voice? {
         val lang = Locale.forLanguageTag(prefs.language).language
-        return t.voices?.firstOrNull {
-            it.locale.language == lang &&
-                it.name.contains("male", ignoreCase = true) &&
-                !it.name.contains("female", ignoreCase = true)
+        val voices = (t.voices ?: return null).filter { it.locale.language == lang }
+        fun isMale(v: Voice): Boolean {
+            val n = v.name.lowercase()
+            return (n.contains("male") && !n.contains("female")) || maleCodes.any { n.contains(it) }
         }
+        return voices.filter { isMale(it) }
+            .sortedByDescending { it.quality }
+            .firstOrNull()
     }
 
     fun voiceNames(): List<String> {
