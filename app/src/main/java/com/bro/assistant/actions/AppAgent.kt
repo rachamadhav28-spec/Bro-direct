@@ -40,6 +40,7 @@ class AppAgent(
             )
         if (prefs.apiKey.isBlank()) return ActionResult.fail("Working inside apps needs the Gemini API key. Add it in Settings.")
 
+        val apps = AppKnowledge.installedApps(context)
         val history = ArrayList<String>()
         var lastSig = ""
         var repeats = 0
@@ -52,7 +53,16 @@ class AppAgent(
             val pkg = BroAccessibilityService.currentPackage
             val screen = items.mapIndexed { i, it -> "[$i] ${it.line}" }.joinToString("\n")
 
+            val playbooks = AppKnowledge.relevant(goal, pkg)
             val prompt = buildString {
+                append("PHONE KNOWLEDGE:\n").append(AppKnowledge.PHONE).append("\n\n")
+                if (playbooks.isNotEmpty()) {
+                    append("APP PLAYBOOKS (how these apps work; verify against the real screen):\n")
+                    playbooks.forEach { append("* ").append(it.guide).append("\n") }
+                    append("\n")
+                }
+                append("INSTALLED APPS: ").append(apps).append("\n\n")
+                append("NOW: ").append(java.text.SimpleDateFormat("EEE d MMM yyyy HH:mm", java.util.Locale.ENGLISH).format(java.util.Date())).append("\n")
                 append("GOAL: ").append(goal).append("\n")
                 append("CURRENT_APP_PACKAGE: ").append(pkg.ifBlank { "unknown" }).append(" (com.bro.assistant is BRO itself, not your target)\n")
                 append("STEP: ").append(step).append(" of ").append(MAX_STEPS).append("\n")
@@ -131,6 +141,28 @@ class AppAgent(
                     history.add("scroll ${if (down) "down" else "up"} -> ${if (ok) "scrolled" else "failed"}")
                 }
 
+                "open_url" -> {
+                    val url = decision.optString("url").trim()
+                    if (!url.startsWith("https://") && !url.startsWith("http://")) { history.add("open_url \"$url\" -> must start with https://"); continue }
+                    progress("Open ${url.take(40)}")
+                    val ok = try {
+                        context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+                        true
+                    } catch (e: Exception) { false }
+                    history.add("open_url $url -> ${if (ok) "opened" else "failed"}")
+                    delay(1500)
+                }
+                "long_press" -> {
+                    if (item == null) { history.add("long_press $index -> no such element"); continue }
+                    progress("Long-press \"${item.label.take(30)}\"")
+                    var n: AccessibilityNodeInfo? = item.node
+                    var ok = false
+                    var depth = 0
+                    while (n != null && depth < 5 && !ok) { ok = n.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK); n = n.parent; depth++ }
+                    history.add("long_press [$index] -> ${if (ok) "done" else "failed"}")
+                }
+                "notifications" -> { progress("Open notifications"); service.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_NOTIFICATIONS); history.add("notifications opened") }
+                "recents" -> { progress("Open recent apps"); service.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_RECENTS); history.add("recents opened") }
                 "back" -> { progress("Go back"); service.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK); history.add("back") }
                 "home" -> { progress("Go home"); service.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_HOME); history.add("home") }
                 "wait" -> { progress("Wait"); delay(1500); history.add("wait") }
@@ -218,12 +250,18 @@ class AppAgent(
             {"action":"click","index":N}                           tap element N from SCREEN ELEMENTS
             {"action":"type","index":N,"text":"...","submit":false}  type into input element N (submit:true presses Enter/Search)
             {"action":"scroll","direction":"down"}                 or "up", to reveal more elements
+            {"action":"open_url","url":"https://..."}              open a website/link (best way to reach a web page)
+            {"action":"long_press","index":N}                      long-press element N
+            {"action":"notifications"} {"action":"recents"}        open the notification shade / recent apps
             {"action":"back"}  {"action":"home"}  {"action":"wait"}
             {"action":"done","summary":"..."}      goal finished. If the goal asked a question or to read something, put the answer in summary.
             {"action":"fail","summary":"why"}      impossible or blocked
             {"action":"ask","summary":"question for the user"}  you need information only the user has
 
             Rules:
+            - You are given PHONE KNOWLEDGE, APP PLAYBOOKS and INSTALLED APPS. Use them: pick the right app, follow
+              the playbook's fastest route, and use the exact app names from INSTALLED APPS with open_app.
+            - If the needed app is not installed, say so with "fail" and suggest the website via open_url or the Play Store.
             - Element numbers only refer to the CURRENT screen list. Use only numbers that exist.
             - If CURRENT_APP_PACKAGE is com.bro.assistant (or the target app is not open), use open_app first.
             - Look at PREVIOUS ACTIONS. Never repeat a step that did not change anything; try another way

@@ -31,6 +31,14 @@ class ActionPlanner(
     suspend fun plan(text: String): PlanResult {
         extra.tryHandle(text)?.let { return PlanResult(reply = it) }
 
+        // "what can you do in whatsapp" -> read the built-in playbook
+        Regex("^(?:what\\s+can\\s+you\\s+do\\s+(?:in|with|on)|how\\s+does|tell\\s+me\\s+about)\\s+(.{2,30}?)[?.!]*$", RegexOption.IGNORE_CASE)
+            .find(text.trim())?.let { m ->
+                com.bro.assistant.actions.AppKnowledge.summaryFor(m.groupValues[1].removeSuffix(" work").trim())?.let {
+                    return PlanResult(reply = "Here is what I know about it, and I can operate it for you with: agent <what you want>\n\n$it")
+                }
+            }
+
         // explicit: "agent <goal>" / "inside <goal>" runs the screen-operating agent directly
         Regex("^(?:agent|operate|inside)\\b[:,]?\\s+(.{3,})$", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
             .find(text.trim())?.let { m ->
