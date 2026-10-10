@@ -122,7 +122,7 @@ object LocalLlm {
                 }
                 val raw = if (useLm) {
                     // LiteRT-LM applies the model's own chat template
-                    lmEngine!!.createConversation().use { c -> c.sendMessage(sys + "\n\n" + body).text }.orEmpty()
+                    lmEngine!!.createConversation().use { c -> c.sendMessage(sys + "\n\n" + body).toString() }
                 } else {
                     engine!!.generateResponse(template(prefs.localModelName, sys, body)).orEmpty()
                 }
