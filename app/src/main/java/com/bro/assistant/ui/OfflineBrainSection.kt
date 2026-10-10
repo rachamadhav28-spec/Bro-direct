@@ -51,11 +51,15 @@ fun OfflineBrainSection(prefs: PreferencesStore) {
             scope.launch {
                 val ok = withContext(Dispatchers.IO) {
                     try {
-                        LocalLlm.release()
+                        val display = ctx.contentResolver.query(uri, null, null, null, null)?.use { c ->
+                            val i = c.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                            if (c.moveToFirst() && i >= 0) c.getString(i) else null
+                        } ?: uri.lastPathSegment.orEmpty()
+                        LocalLlm.deleteAll(ctx)
                         ctx.contentResolver.openInputStream(uri)?.use { input ->
-                            LocalLlm.modelFile(ctx).outputStream().use { input.copyTo(it) }
+                            LocalLlm.fileFor(ctx, display).outputStream().use { input.copyTo(it) }
                         }
-                        prefs.localModelName = uri.lastPathSegment.orEmpty()
+                        prefs.localModelName = display
                         true
                     } catch (e: Exception) { false }
                 }
@@ -97,12 +101,14 @@ fun OfflineBrainSection(prefs: PreferencesStore) {
             color = if (installed) Color(0xFF66BB6A) else Color.LightGray
         )
         Text(
-            "Lets BRO think on the phone with no internet and no API key. One-time download of a model file " +
-                "(about 0.5-1.5 GB; use Wi-Fi). On huggingface.co open the litert-community page, pick a chat model " +
-                "such as Qwen2.5-1.5B-Instruct, and choose the .task file with the largest context (names ending ekv4096). " +
-                "Copy the download link and paste it below, or download it yourself and choose the file.",
+            "Lets BRO think on the phone with no internet and no API key. One-time download (use Wi-Fi). " +
+                "Recommended: Gemma 4 E2B from litert-community (about 2.6 GB, needs roughly 4 GB free RAM). " +
+                "Or paste the link of any .litertlm / .task model file, or download one yourself and choose the file.",
             color = Color.Gray, fontSize = 12.sp
         )
+        OutlinedButton(onClick = {
+            link = "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm"
+        }) { Text("Use Gemma 4 E2B link") }
         OutlinedTextField(
             value = link, onValueChange = { link = it },
             label = { Text("Link to the .task model file") }, singleLine = true, modifier = Modifier.fillMaxWidth()
@@ -110,21 +116,20 @@ fun OfflineBrainSection(prefs: PreferencesStore) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(enabled = link.startsWith("https://") && downloadId < 0, onClick = {
                 try {
-                    LocalLlm.release()
-                    LocalLlm.modelFile(ctx).delete()
+                    LocalLlm.deleteAll(ctx)
                     val dm = ctx.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
                     val req = DownloadManager.Request(Uri.parse(link.trim()))
                         .setTitle("BRO offline brain")
                         .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                        .setDestinationInExternalFilesDir(ctx, null, LocalLlm.modelFile(ctx).name)
-                    prefs.localModelName = link.substringAfterLast('/').substringBefore('?')
+                        .setDestinationInExternalFilesDir(ctx, null, LocalLlm.fileNameFor(link.trim()))
+                    prefs.localModelName = link.trim().substringAfterLast('/').substringBefore('?')
                     downloadId = dm.enqueue(req)
                     status = "Starting download..."
                 } catch (e: Exception) { status = "Could not start the download: ${e.message}" }
             }) { Text("Download") }
             OutlinedButton(onClick = { picker.launch(arrayOf("*/*")) }) { Text("Choose file") }
             if (installed) OutlinedButton(onClick = {
-                LocalLlm.release(); LocalLlm.modelFile(ctx).delete(); installed = false; status = "Offline brain removed."
+                LocalLlm.deleteAll(ctx); installed = false; status = "Offline brain removed."
             }) { Text("Remove") }
         }
         if (status.isNotEmpty()) Text(status, color = Color.LightGray, fontSize = 13.sp)

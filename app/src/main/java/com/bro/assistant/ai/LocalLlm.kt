@@ -4,6 +4,9 @@ import android.content.Context
 import com.bro.assistant.AiException
 import com.bro.assistant.ErrorHandler
 import com.bro.assistant.memory.PreferencesStore
+import com.google.ai.edge.litertlm.Backend
+import com.google.ai.edge.litertlm.Engine
+import com.google.ai.edge.litertlm.EngineConfig
 import com.google.mediapipe.tasks.genai.llminference.LlmInference
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -23,8 +26,25 @@ object LocalLlm {
     private var contextTokens = 0
     private val lock = Mutex()
 
-    fun modelFile(context: Context): File =
-        File(context.applicationContext.getExternalFilesDir(null) ?: context.applicationContext.filesDir, "offline_model.task")
+    private fun dir(context: Context): File =
+        context.applicationContext.getExternalFilesDir(null) ?: context.applicationContext.filesDir
+
+    /** Gemma 4 and newer models come as .litertlm (LiteRT-LM); older ones as .task (MediaPipe). */
+    fun fileNameFor(link: String): String =
+        if (link.substringBefore('?').lowercase().endsWith(".litertlm")) "offline_model.litertlm" else "offline_model.task"
+
+    fun fileFor(context: Context, link: String): File = File(dir(context), fileNameFor(link))
+
+    fun modelFile(context: Context): File {
+        val lm = File(dir(context), "offline_model.litertlm")
+        return if (lm.exists()) lm else File(dir(context), "offline_model.task")
+    }
+
+    fun deleteAll(context: Context) {
+        release()
+        File(dir(context), "offline_model.litertlm").delete()
+        File(dir(context), "offline_model.task").delete()
+    }
 
     fun isInstalled(context: Context): Boolean = modelFile(context).let { it.exists() && it.length() > 1_000_000L }
 
@@ -32,10 +52,32 @@ object LocalLlm {
     fun willUse(prefs: PreferencesStore): Boolean =
         isInstalled(prefs.appContext) && (prefs.brainMode == "offline" || prefs.apiKey.isBlank())
 
+    private var lmEngine: Engine? = null
+    private var lmPath: String? = null
+
     fun release() {
         try { engine?.close() } catch (_: Exception) {}
+        try { lmEngine?.close() } catch (_: Exception) {}
         engine = null
         enginePath = null
+        lmEngine = null
+        lmPath = null
+    }
+
+    private fun loadLiteRt(context: Context): Engine {
+        val file = modelFile(context)
+        lmEngine?.let { if (lmPath == file.absolutePath) return it }
+        release()
+        try {
+            val e = Engine(EngineConfig(modelPath = file.absolutePath, backend = Backend.CPU()))
+            e.initialize()
+            lmEngine = e; lmPath = file.absolutePath; contextTokens = 4096
+            return e
+        } catch (t: Throwable) {
+            ErrorHandler.log("LocalLlm", "LiteRT-LM load failed", t)
+            throw IllegalStateException("The offline model could not start: ${t.message ?: t.javaClass.simpleName}. " +
+                "It may need more free memory, or the file may be incomplete.")
+        }
     }
 
     private fun load(context: Context): LlmInference {
@@ -65,7 +107,8 @@ object LocalLlm {
         withContext(Dispatchers.IO) {
             lock.withLock {
                 val ctx = prefs.appContext
-                val e = load(ctx)
+                val useLm = modelFile(ctx).name.endsWith(".litertlm")
+                if (useLm) loadLiteRt(ctx) else load(ctx)
                 val reserve = if (json) 400 else 900
                 val budgetChars = ((contextTokens - reserve).coerceAtLeast(300)) * 3
                 val sys = if (json) system + "\nReply with ONE valid JSON object and nothing else." else system
@@ -77,7 +120,12 @@ object LocalLlm {
                     val head = room * 2 / 5
                     body = body.take(head) + "\n...\n" + body.takeLast(room - head - 5)
                 }
-                val raw = e.generateResponse(template(prefs.localModelName, sys, body)).orEmpty()
+                val raw = if (useLm) {
+                    // LiteRT-LM applies the model's own chat template
+                    lmEngine!!.createConversation().use { c -> c.sendMessage(sys + "\n\n" + body).text }.orEmpty()
+                } else {
+                    engine!!.generateResponse(template(prefs.localModelName, sys, body)).orEmpty()
+                }
                 if (raw.isBlank()) throw AiException(502, "offline model gave an empty answer")
                 if (!json) raw else asJson(raw)
             }
