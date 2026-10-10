@@ -55,6 +55,9 @@ class GeminiClient(private val prefs: PreferencesStore) {
             } catch (e: AiException) {
                 // Google retired this model for this key: pick one that works and try again.
                 if (e.code == 404 && !modelSwitched && switchModel()) { modelSwitched = true; continue }
+                if (e.code == 400 && !prefs.thinkingUnsupported && e.detail.contains("think", ignoreCase = true)) {
+                    prefs.thinkingUnsupported = true; continue
+                }
                 if (e.code !in listOf(429, 500, 502, 503, 504) || attempt >= waits.size) throw e
                 delay(waits[attempt++])
             }
@@ -136,7 +139,11 @@ class GeminiClient(private val prefs: PreferencesStore) {
                     JSONObject().apply {
                         if (json) put("responseMimeType", "application/json")
                         put("temperature", if (json) 0.2 else 0.3)
-                        put("maxOutputTokens", 32768)
+                        put("maxOutputTokens", if (json) 1024 else 32768)
+                        // quick commands do not need long "thinking": skip it for speed (retried without if unsupported)
+                        if (json && !prefs.thinkingUnsupported) {
+                            put("thinkingConfig", JSONObject().put("thinkingBudget", 0))
+                        }
                     }
                 )
 

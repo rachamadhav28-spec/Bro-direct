@@ -90,6 +90,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             addMessage(false, "BRO is ready. Type a command or tap the mic.")
         }
         refreshHistory()
+        if (com.bro.assistant.ai.LocalLlm.isInstalled(app)) {
+            viewModelScope.launch { com.bro.assistant.ai.LocalLlm.warmUp(prefs) }
+        }
     }
 
     private fun loadConversation(c: Conversation) {

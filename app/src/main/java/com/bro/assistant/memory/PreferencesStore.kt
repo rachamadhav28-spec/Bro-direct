@@ -24,6 +24,11 @@ class PreferencesStore(context: Context) {
         get() = str("brain_mode", "auto")
         set(value) { sp.edit().putString("brain_mode", value).apply() }
 
+    /** Set when the chosen Gemini model rejects the "no thinking" option. */
+    var thinkingUnsupported: Boolean
+        get() = sp.getBoolean("thinking_unsupported", false)
+        set(value) { sp.edit().putBoolean("thinking_unsupported", value).apply() }
+
     var localModelName: String
         get() = str("local_model_name", "")
         set(value) { sp.edit().putString("local_model_name", value).apply() }

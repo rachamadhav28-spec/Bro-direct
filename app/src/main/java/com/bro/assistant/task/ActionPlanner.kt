@@ -29,6 +29,9 @@ class ActionPlanner(
     private val ai = IntentParser(memory, prefs)
 
     suspend fun plan(text: String): PlanResult {
+        // instant built-in answers (boss, greetings): no AI, no internet
+        com.bro.assistant.ai.Persona.answer(text)?.let { return PlanResult(reply = it) }
+
         extra.tryHandle(text)?.let { return PlanResult(reply = it) }
 
         // "what can you do in whatsapp" -> read the built-in playbook

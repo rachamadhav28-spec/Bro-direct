@@ -8,22 +8,23 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /** Turns a natural-language request into a reply plus structured actions using the AI. */
-class IntentParser(private val memory: SessionMemory, prefs: PreferencesStore) {
+class IntentParser(private val memory: SessionMemory, private val prefs: PreferencesStore) {
 
     data class AiPlan(val reply: String, val actions: List<BroAction>)
 
     private val client = GeminiClient(prefs)
 
     suspend fun understand(userText: String): AiPlan {
+        val local = com.bro.assistant.ai.LocalLlm.willUse(prefs) // short prompt = much faster on the phone
         val context = buildString {
             append("Context:\n")
             append("last_app=").append(memory.lastApp ?: "none").append('\n')
             append("last_contact=").append(memory.lastContact ?: "none").append('\n')
             append("last_message=").append(memory.lastMessage ?: "none").append('\n')
-            append("Recent conversation:\n").append(memory.historyText()).append("\n\n")
+            append("Recent conversation:\n").append(memory.historyText().takeLast(if (local) 500 else 4000)).append("\n\n")
             append("User says: ").append(userText)
         }
-        return parse(client.generate(SYSTEM_PROMPT, context))
+        return parse(client.generate(if (local) COMPACT_PROMPT else SYSTEM_PROMPT, context))
     }
 
     /** Free-form answer (code, explanations). Not JSON. */
@@ -74,6 +75,16 @@ class IntentParser(private val memory: SessionMemory, prefs: PreferencesStore) {
             - If the request is unclear, ask one short question instead of guessing.
             - The user may write English, Telugu, or Tenglish (Telugu in English letters). Answer in the
               same language style, but keep code, identifiers and comments in English.
+        """.trimIndent()
+
+        private val COMPACT_PROMPT = """
+            You are BRO, an Android voice assistant. Reply ONLY JSON: {"reply":"short text","actions":[{"type":"TYPE","params":{}}]}
+            Types: LAUNCH_APP{app} GO_HOME GO_BACK SCREENSHOT OPEN_SETTINGS SET_ALARM{hour,minute} CALL{contact}
+            FLASHLIGHT{state:on|off} TOGGLE_SETTING{name,state:on|off} YOUTUBE_SEARCH{query} YOUTUBE_PLAY_FIRST
+            WHATSAPP_MESSAGE{contact,message} AGENT_TASK{goal} (AGENT_TASK = do a job inside any app by tapping/typing).
+            Chat or questions: actions [] and a reply of at most 2 short sentences. Missing detail: ask in reply, actions [].
+            User may write English, Telugu or Tenglish; answer in the same style. Keep params in English.
+            Never invent action types.
         """.trimIndent()
 
         private val SYSTEM_PROMPT = """

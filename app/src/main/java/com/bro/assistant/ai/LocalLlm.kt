@@ -103,6 +103,17 @@ object LocalLlm {
             "It may be too big for this phone or not a MediaPipe .task file.")
     }
 
+    /** Loads the model in the background so the first answer is not slow. */
+    suspend fun warmUp(prefs: PreferencesStore) = withContext(Dispatchers.IO) {
+        try {
+            lock.withLock {
+                val ctx = prefs.appContext
+                if (!isInstalled(ctx)) return@withLock
+                if (modelFile(ctx).name.endsWith(".litertlm")) loadLiteRt(ctx) else load(ctx)
+            }
+        } catch (e: Exception) { ErrorHandler.log("LocalLlm", "warm-up failed", e) }
+    }
+
     suspend fun generate(prefs: PreferencesStore, system: String, user: String, json: Boolean): String =
         withContext(Dispatchers.IO) {
             lock.withLock {
