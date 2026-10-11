@@ -10,6 +10,7 @@ import androidx.lifecycle.viewModelScope
 import com.bro.assistant.memory.PreferencesStore
 import com.bro.assistant.memory.SessionMemory
 import com.bro.assistant.task.ActionPlanner
+import com.bro.assistant.task.ActionStatus
 import com.bro.assistant.task.StepUi
 import com.bro.assistant.task.TaskManager
 import com.bro.assistant.task.TaskNotifier
