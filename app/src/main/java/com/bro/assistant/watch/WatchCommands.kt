@@ -7,7 +7,7 @@ object WatchCommands {
 
     private val stopRx = Regex("^(?:stop|cancel|remove|delete|clear|end)\\s+(?:the\\s+|all\\s+|my\\s+)*(?:watch(?:es|ing)?|auto(?:matic)?\\s+check(?:s|ing)?|hourly\\s+check(?:s)?|claude\\s+(?:watch|check)(?:ing)?)[.!]*$", RegexOption.IGNORE_CASE)
     private val listRx = Regex("^(?:watch(?:es)?\\s+status|list\\s+(?:my\\s+)?watch(?:es)?|what\\s+are\\s+you\\s+watching|show\\s+watch(?:es)?)[?.!]*$", RegexOption.IGNORE_CASE)
-    private val everyRx = Regex("^(?:every|each)\\s+(\\d+)?\\s*(hours?|hrs?|minutes?|mins?)\\s*,?\\s*(.{6,})$", RegexOption.IGNORE_CASE or RegexOption.DOT_MATCHES_ALL)
+    private val everyRx = Regex("^(?:every|each)\\s+(\\d+)?\\s*(hours?|hrs?|minutes?|mins?)\\s*,?\\s*(.{6,})$", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
 
     /** Used by the command splitter so these sentences are not cut at "then". */
     fun isWatchRequest(text: String): Boolean = looksLikeClaude(text) || everyRx.containsMatchIn(text.trim())
