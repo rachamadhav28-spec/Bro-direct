@@ -55,7 +55,8 @@ fun ChatScreen(
     vm: ChatViewModel,
     onMic: () -> Unit,
     onOpenSettings: () -> Unit,
-    onOpenHistory: () -> Unit
+    onOpenHistory: () -> Unit,
+    onSecureConfirm: ((() -> Unit) -> Unit)? = null
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     var input by remember { mutableStateOf("") }
@@ -192,7 +193,13 @@ fun ChatScreen(
             onDismissRequest = { vm.answerConfirm(false) },
             title = { Text("Confirm") },
             text = { Text(question) },
-            confirmButton = { TextButton(onClick = { vm.answerConfirm(true) }) { Text("Yes") } },
+            confirmButton = {
+                TextButton(onClick = {
+                    val yes = { vm.answerConfirm(true) }
+                    // risky taps inside other apps (pay, delete, ...) need fingerprint / screen lock again
+                    if (question.startsWith("BRO wants to tap") && onSecureConfirm != null) onSecureConfirm(yes) else yes()
+                }) { Text("Yes") }
+            },
             dismissButton = { TextButton(onClick = { vm.answerConfirm(false) }) { Text("No") } }
         )
     }

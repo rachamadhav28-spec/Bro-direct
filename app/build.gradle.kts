@@ -58,6 +58,7 @@ android {
 
 dependencies {
     implementation("androidx.core:core-ktx:1.15.0")
+    implementation("androidx.biometric:biometric:1.1.0") // fingerprint / screen-lock for the BRO app lock
     // on-device language model (runs fully offline once a model file is installed)
     implementation("com.google.mediapipe:tasks-genai:0.10.24")
     // LiteRT-LM runs Gemma 4 (.litertlm files)

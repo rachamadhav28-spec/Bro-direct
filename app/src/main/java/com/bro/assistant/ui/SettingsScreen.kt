@@ -93,6 +93,24 @@ fun SettingsScreen(
         Heading("Offline brain (no internet, no API key)")
         OfflineBrainSection(prefs)
 
+        Heading("Security")
+        val lockAvailable = remember(tick) { com.bro.assistant.security.AppLock.available(ctx) }
+        var appLock by remember { mutableStateOf(prefs.appLock) }
+        SwitchRow("Lock BRO with fingerprint / screen lock", appLock && lockAvailable) { want ->
+            if (want) { prefs.appLock = true; appLock = true }
+            else {
+                // turning the lock off needs the owner to prove it first
+                val act = ctx as? androidx.fragment.app.FragmentActivity
+                if (act == null || !lockAvailable) { prefs.appLock = false; appLock = false }
+                else com.bro.assistant.security.AppLock.authenticate(act, "Turn off BRO lock", onSuccess = { prefs.appLock = false; appLock = false })
+            }
+        }
+        Text(
+            if (lockAvailable) "BRO asks for your fingerprint or screen lock when it opens or after you were away 30 seconds, and before risky taps inside other apps."
+            else "Set a screen lock or fingerprint in Android Settings first, then this lock can work.",
+            color = Color.Gray, fontSize = 12.sp
+        )
+
         Heading("GitHub")
         OutlinedTextField(
             value = githubToken, onValueChange = { githubToken = it; saved = false },

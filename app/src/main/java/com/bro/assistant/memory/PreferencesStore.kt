@@ -64,6 +64,11 @@ class PreferencesStore(context: Context) {
         get() = sp.getBoolean("speak_replies", true)
         set(value) { sp.edit().putBoolean("speak_replies", value).apply() }
 
+    /** Ask for fingerprint / screen lock when BRO opens (only used when the phone has one set up). */
+    var appLock: Boolean
+        get() = sp.getBoolean("app_lock", true)
+        set(value) { sp.edit().putBoolean("app_lock", value).apply() }
+
     var wakeEnabled: Boolean
         get() = sp.getBoolean("wake_enabled", false)
         set(value) { sp.edit().putBoolean("wake_enabled", value).apply() }

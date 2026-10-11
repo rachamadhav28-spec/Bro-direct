@@ -4,7 +4,7 @@ import android.Manifest
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
-import androidx.activity.ComponentActivity
+import androidx.fragment.app.FragmentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -36,7 +36,7 @@ private data class PermDialog(
     val onPositive: () -> Unit
 )
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
 
     private val vm: ChatViewModel by viewModels()
 
@@ -44,6 +44,30 @@ class MainActivity : ComponentActivity() {
     private var showSettings by mutableStateOf(false)
     private var showHistory by mutableStateOf(false)
     private var tick by mutableStateOf(0)
+
+    // app lock: fingerprint / screen lock when BRO opens or comes back after a while
+    private var locked by mutableStateOf(false)
+    private var lockMessage by mutableStateOf("Unlock with your fingerprint or screen lock.")
+    private var promptShowing = false
+    private var leftAt = 0L
+
+    private fun lockEnabled() = vm.prefs.appLock && com.bro.assistant.security.AppLock.available(this)
+
+    private fun unlock() {
+        if (!locked || promptShowing) return
+        promptShowing = true
+        com.bro.assistant.security.AppLock.authenticate(
+            this, "Unlock BRO",
+            onSuccess = { promptShowing = false; locked = false },
+            onFailure = { promptShowing = false; lockMessage = "Not unlocked: $it" }
+        )
+    }
+
+    /** Runs [action] only after the owner confirms (used before risky actions BRO wants to take). */
+    private fun secure(action: () -> Unit) {
+        if (!lockEnabled()) { action(); return }
+        com.bro.assistant.security.AppLock.authenticate(this, "Confirm this action", onSuccess = action)
+    }
 
     private var pendingPermission: String? = null
     private var afterGrant: (() -> Unit)? = null
@@ -68,12 +92,15 @@ class MainActivity : ComponentActivity() {
             crashPrefs.edit().remove("last").apply()
             vm.reportCrash(it)
         }
+        locked = lockEnabled()
         handleWake(intent)
 
         setContent {
             BroTheme {
                 Box(Modifier.fillMaxSize()) {
-                    if (showSettings) {
+                    if (locked) {
+                        com.bro.assistant.ui.LockScreen(lockMessage) { unlock() }
+                    } else if (showSettings) {
                         BackHandler { showSettings = false }
                         SettingsScreen(
                             vm = vm,
@@ -94,7 +121,8 @@ class MainActivity : ComponentActivity() {
                             vm = vm,
                             onMic = { onMicTapped() },
                             onOpenSettings = { showSettings = true },
-                            onOpenHistory = { vm.refreshHistory(); showHistory = true }
+                            onOpenHistory = { vm.refreshHistory(); showHistory = true },
+                            onSecureConfirm = { action -> secure(action) }
                         )
                     }
 
@@ -130,11 +158,15 @@ class MainActivity : ComponentActivity() {
         super.onStart()
         vm.appVisible = true
         BroListenerService.setPaused(true) // free the microphone while BRO is on screen
+        if (!locked && leftAt > 0 && lockEnabled() &&
+            android.os.SystemClock.elapsedRealtime() - leftAt > 30_000L) locked = true
+        if (locked) unlock()
         tick++
     }
 
     override fun onStop() {
         vm.appVisible = false
+        if (!promptShowing) leftAt = android.os.SystemClock.elapsedRealtime()
         if (vm.prefs.wakeEnabled) BroListenerService.setPaused(false)
         super.onStop()
     }
