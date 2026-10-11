@@ -53,7 +53,7 @@ object MailRecovery {
                 send("RCPT TO:<$to>"); expect(readReply(r), "250", "251")
                 send("DATA"); expect(readReply(r), "354")
                 val safeBody = body.replace("\r\n", "\n").replace("\n.", "\n..").replace("\n", "\r\n")
-                w.write("From: BRO <$from>\r\nTo: $to\r\nSubject: $subject\r\nMIME-Version: 1.0\r\n" +
+                w.write("From: \"BRO\" <$from>\r\nTo: $to\r\nSubject: $subject\r\nMIME-Version: 1.0\r\n" +
                     "Content-Type: text/plain; charset=UTF-8\r\n\r\n$safeBody\r\n.\r\n")
                 w.flush()
                 expect(readReply(r), "250")
@@ -98,8 +98,8 @@ object MailRecovery {
         if (!testOnly && now - lastSent < 60_000L) return "Please wait a minute before asking for another code."
         val code = "%06d".format(SecureRandom().nextInt(1_000_000))
         val err = sendMail(
-            email, pass, email, "BRO recovery code",
-            "Your BRO recovery code is $code\n\nIt works for 10 minutes. If you did not ask for it, ignore this email."
+            email, pass, email, "BRO: your recovery code",
+            "BRO here, boss.\n\nYour BRO recovery code is $code\n\nIt works for 10 minutes. If you did not ask for it, ignore this email.\n\n- BRO"
         )
         if (err == null) {
             codeHash = hash(code); expires = now + 10 * 60_000L; tries = 0; lastSent = now
