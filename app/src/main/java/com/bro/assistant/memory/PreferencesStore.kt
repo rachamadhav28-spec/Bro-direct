@@ -74,6 +74,16 @@ class PreferencesStore(context: Context) {
         get() = sp.getBoolean("lock_biometric", false)
         set(value) { sp.edit().putBoolean("lock_biometric", value).apply() }
 
+    /** The Gmail the owner signed in with when BRO first opened. */
+    var accountEmail: String
+        get() = str("account_email", "")
+        set(value) { sp.edit().putString("account_email", value.trim()).apply() }
+
+    /** The Google app password, encrypted with the phone's keystore (see SecretBox). */
+    var mailSecret: String
+        get() = str("mail_secret", "")
+        set(value) { sp.edit().putString("mail_secret", value).apply() }
+
     var wakeEnabled: Boolean
         get() = sp.getBoolean("wake_enabled", false)
         set(value) { sp.edit().putBoolean("wake_enabled", value).apply() }

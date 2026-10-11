@@ -61,16 +61,26 @@ class MainActivity : FragmentActivity() {
             ({ com.bro.assistant.security.AppLock.authenticateBiometric(this, "Unlock BRO", onSuccess = onOk) })
         else null
 
-    /** Forgot the secret: the phone's own lock proves you are the owner, then the BRO lock is removed. */
-    private fun forgotOffer(): (() -> Unit)? =
-        if (com.bro.assistant.security.AppLock.available(this))
-            ({
-                com.bro.assistant.security.AppLock.authenticate(this, "Reset BRO lock", onSuccess = {
-                    com.bro.assistant.security.LockStore.clear(this)
-                    locked = false; verifyAction = null; tick++
-                })
-            })
-        else null
+    // first-run Gmail sign-in, and lock recovery (fingerprint or emailed code)
+    private var needLogin by mutableStateOf(false)
+    private var recovery by mutableStateOf(false)
+    private var mailSetup by mutableStateOf(false)
+
+    private val accountLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
+            val name = r.data?.getStringExtra(android.accounts.AccountManager.KEY_ACCOUNT_NAME)
+            if (!name.isNullOrBlank()) { vm.prefs.accountEmail = name; needLogin = false; tick++ }
+        }
+
+    private fun pickGoogleAccount(): Boolean = try {
+        val i = com.google.android.gms.common.AccountPicker.newChooseAccountIntent(
+            com.google.android.gms.common.AccountPicker.AccountChooserOptions.Builder()
+                .setAllowableAccountsTypes(listOf("com.google")).build()
+        )
+        com.bro.assistant.security.LockGrace.allowFor(5 * 60_000L)
+        accountLauncher.launch(i)
+        true
+    } catch (e: Exception) { false }
 
     /** Runs [action] only after the BRO lock is entered (used before risky actions BRO wants to take). */
     private fun secure(action: () -> Unit) {
@@ -101,6 +111,7 @@ class MainActivity : FragmentActivity() {
             crashPrefs.edit().remove("last").apply()
             vm.reportCrash(it)
         }
+        needLogin = vm.prefs.accountEmail.isBlank()
         locked = lockEnabled()
         showSettings = savedInstanceState?.getBoolean("s") ?: false
         showHistory = savedInstanceState?.getBoolean("h") ?: false
@@ -109,14 +120,46 @@ class MainActivity : FragmentActivity() {
         setContent {
             BroTheme {
                 Box(Modifier.fillMaxSize()) {
-                    if (locked) {
+                    if (needLogin) {
+                        com.bro.assistant.ui.LoginScreen(
+                            onPickGoogle = { pickGoogleAccount() },
+                            onTyped = { vm.prefs.accountEmail = it; needLogin = false; tick++ }
+                        )
+                    } else if (recovery) {
+                        BackHandler { recovery = false }
+                        com.bro.assistant.ui.RecoveryScreen(
+                            prefs = vm.prefs,
+                            fingerprintAvailable = com.bro.assistant.security.AppLock.biometricAvailable(this@MainActivity),
+                            onFingerprint = {
+                                com.bro.assistant.security.AppLock.authenticateBiometric(this@MainActivity, "Reset BRO lock", onSuccess = {
+                                    com.bro.assistant.security.LockStore.clear(this@MainActivity)
+                                    locked = false; recovery = false; tick++
+                                })
+                            },
+                            onVerified = {
+                                com.bro.assistant.security.LockStore.clear(this@MainActivity)
+                                locked = false; recovery = false; tick++
+                            },
+                            onCancel = { recovery = false }
+                        )
+                    } else if (mailSetup) {
+                        BackHandler { mailSetup = false }
+                        com.bro.assistant.ui.MailSetupScreen(
+                            prefs = vm.prefs,
+                            onOpenGooglePage = {
+                                com.bro.assistant.security.LockGrace.allowFor(10 * 60_000L)
+                                startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://myaccount.google.com/apppasswords")))
+                            },
+                            onDone = { mailSetup = false; tick++ }
+                        )
+                    } else if (locked) {
                         com.bro.assistant.ui.BroLockScreen(
                             type = com.bro.assistant.security.LockStore.type(this@MainActivity),
                             message = "BRO is locked",
                             onSubmit = { secret -> check(secret).also { ok -> if (ok) locked = false } },
                             waitSeconds = { waitSeconds() },
                             onBiometric = biometricOffer { locked = false },
-                            onForgot = forgotOffer()
+                            onForgot = { recovery = true }
                         )
                     } else if (lockFlow != null) {
                         BackHandler { lockFlow = null }
@@ -151,7 +194,8 @@ class MainActivity : FragmentActivity() {
                             onBack = { showSettings = false },
                             onRequest = { requestPermission(it) },
                             onWakeToggle = { setWake(it) },
-                            onLockSetup = { lockFlow = it }
+                            onLockSetup = { lockFlow = it },
+                            onMailSetup = { mailSetup = true }
                         )
                     } else if (showHistory) {
                         BackHandler { showHistory = false }

@@ -43,7 +43,8 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onRequest: (String) -> Unit,
     onWakeToggle: (Boolean) -> Unit,
-    onLockSetup: (String) -> Unit = {}
+    onLockSetup: (String) -> Unit = {},
+    onMailSetup: () -> Unit = {}
 ) {
     val ctx = LocalContext.current
     val prefs = vm.prefs
@@ -114,7 +115,14 @@ fun SettingsScreen(
                 SwitchRow("Also unlock with fingerprint", bio) { bio = it; prefs.lockBiometric = it }
             }
         }
-        Text("Forgot it? On the lock screen, \"Forgot\" lets your phone's own lock reset BRO's lock.", color = Color.Gray, fontSize = 12.sp)
+        Text("Signed in as ${prefs.accountEmail.ifBlank { "(not signed in)" }}", color = Color.White, fontSize = 13.sp)
+        val mailOn = remember(tick) { com.bro.assistant.security.MailRecovery.isConfigured(prefs) }
+        Text(
+            if (mailOn) "Forgot-lock recovery by email: ON. A code is sent to your Gmail." else "Forgot-lock recovery by email: OFF.",
+            color = if (mailOn) Color(0xFF66BB6A) else Color.LightGray, fontSize = 13.sp
+        )
+        OutlinedButton(onClick = onMailSetup) { Text(if (mailOn) "Email recovery settings" else "Set up email recovery") }
+        Text("If you forget the lock, the lock screen's Forgot link accepts your fingerprint or the emailed code.", color = Color.Gray, fontSize = 12.sp)
 
         Heading("GitHub")
         OutlinedTextField(
