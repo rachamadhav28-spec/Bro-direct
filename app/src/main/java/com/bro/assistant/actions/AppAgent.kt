@@ -167,7 +167,12 @@ class AppAgent(
                     if (!url.startsWith("https://") && !url.startsWith("http://")) { history.add("open_url \"$url\" -> must start with https://"); continue }
                     progress("Open ${url.take(40)}")
                     val ok = try {
-                        context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+                        val view = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
+                            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                        try {
+                            // Chrome first (the user's browser of choice), then whatever browser is the default
+                            context.startActivity(android.content.Intent(view).setPackage("com.android.chrome"))
+                        } catch (e: Exception) { context.startActivity(view) }
                         true
                     } catch (e: Exception) { false }
                     history.add("open_url $url -> ${if (ok) "opened" else "failed"}")

@@ -36,9 +36,22 @@ class BroAccessibilityService : AccessibilityService() {
 
     private val main = Handler(Looper.getMainLooper())
 
+    private val unlockReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: android.content.Intent) {
+            // phone unlocked: run any watch check that was waiting for it
+            com.bro.assistant.watch.WatchRunner.onUnlocked(applicationContext)
+        }
+    }
+
     override fun onServiceConnected() {
         super.onServiceConnected()
         instance = this
+        try {
+            androidx.core.content.ContextCompat.registerReceiver(
+                this, unlockReceiver, android.content.IntentFilter(android.content.Intent.ACTION_USER_PRESENT),
+                androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED
+            )
+        } catch (_: Exception) {}
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -96,6 +109,7 @@ class BroAccessibilityService : AccessibilityService() {
     }
 
     override fun onDestroy() {
+        try { unregisterReceiver(unlockReceiver) } catch (_: Exception) {}
         instance = null
         super.onDestroy()
     }

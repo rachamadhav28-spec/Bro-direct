@@ -270,6 +270,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     /** One command through the whole pipeline: direct controls, GitHub, then the planner (and agent). */
     private suspend fun runCommand(text: String, quiet: Boolean): StepOutcome {
+        // recurring jobs ("every hour check ..."): create / list / stop
+        com.bro.assistant.watch.WatchCommands.handle(app, text)?.let { return StepOutcome(true, it, BroState.SUCCESS) }
         // direct phone functions (volume, brightness, lock, tiles...): no planner, no AI
         val later = CompletableDeferred<String>()
         val direct = com.bro.assistant.actions.PhoneFunctions.handle(app, text) { later.complete(it) }

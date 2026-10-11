@@ -18,6 +18,7 @@ object TaskChain {
         if (t.length > 500 || t.contains('"') || t.contains('“')) return listOf(t)
         if (Regex("^(?:agent|inside|operate)\\b", RegexOption.IGNORE_CASE).containsMatchIn(t)) return listOf(t)
         if (building.containsMatchIn(t)) return listOf(t)
+        if (com.bro.assistant.watch.WatchCommands.isWatchRequest(t)) return listOf(t)
         val lines = t.lines().map { it.trim().replace(Regex("^(?:\\d+[.)]|[-*•])\\s*"), "") }.filter { it.isNotEmpty() }
         val src = if (lines.size > 1) lines else listOf(t)
         val out = src.flatMap { seq.split(it) }.map { it.trim().trim(',', ';', '.') }.filter { it.length >= 2 }

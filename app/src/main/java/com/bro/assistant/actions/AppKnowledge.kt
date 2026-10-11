@@ -89,6 +89,14 @@ object AppKnowledge {
             icon edits a file; "Commit changes" saves it. GitHub mobile app: bottom tabs Home, Notifications, Explore,
             Profile; Repositories under Profile. Never delete repos, never change visibility, never create tokens.
             """.trimIndent()),
+        Playbook("Claude (claude.ai in Chrome, or the Claude app)", listOf("com.anthropic.claude"), listOf("claude", "claude.ai", "anthropic"),
+            """
+            Claude chat: claude.ai/recents lists chats, newest first; tap a chat to open it. The message box at the bottom
+            says "Reply to Claude" or "How can I help you today?"; a Send arrow appears after typing. When the usage limit
+            is reached, a notice near the box says the limit was reached and when it resets (for example "resets at 3 PM");
+            the box may be disabled. After the reset the notice disappears. A reply that failed or was cut off shows a
+            Retry button (circular arrow) under it. Never delete chats or change account settings.
+            """.trimIndent()),
         Playbook("Gmail / Email", listOf("com.google.android.gm", "com.microsoft.office.outlook"), listOf("gmail", "email", "mail", "inbox", "compose"),
             """
             Gmail: search bar at top ("Search in mail"); hamburger menu (three lines) = labels (Inbox, Starred,
