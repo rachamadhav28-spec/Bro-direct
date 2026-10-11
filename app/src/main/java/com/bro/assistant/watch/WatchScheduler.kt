@@ -37,7 +37,10 @@ class WatchReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
             WatchScheduler.ACTION_RUN -> intent.getStringExtra("id")?.let { WatchRunner.run(context.applicationContext, it) }
-            Intent.ACTION_BOOT_COMPLETED -> WatchScheduler.rescheduleAll(context.applicationContext)
+            Intent.ACTION_BOOT_COMPLETED -> {
+                WatchScheduler.rescheduleAll(context.applicationContext)
+                try { if (com.bro.assistant.memory.PreferencesStore(context.applicationContext).bubbleEnabled) com.bro.assistant.BubbleService.start(context.applicationContext) } catch (_: Exception) {}
+            }
         }
     }
 }

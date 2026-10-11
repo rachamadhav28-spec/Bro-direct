@@ -49,8 +49,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     val history = mutableStateListOf<Conversation>()
     val messages = mutableStateListOf<ChatMessage>()
 
-    var state by mutableStateOf(BroState.IDLE)
-        private set
+    private var stateBacking by mutableStateOf(BroState.IDLE)
+    var state: BroState
+        get() = stateBacking
+        private set(value) { stateBacking = value; BubbleBus.state = value }
     var partialText by mutableStateOf("")
         private set
     var confirmPrompt by mutableStateOf<String?>(null)

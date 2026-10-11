@@ -256,6 +256,7 @@ class MainActivity : FragmentActivity() {
             android.os.SystemClock.elapsedRealtime() - leftAt > 30_000L) locked = true
         // the offline model was released while BRO was away: load it again in the background
         vm.warmUpBrain()
+        if (vm.prefs.bubbleEnabled) BubbleService.start(this)
         tick++
     }
 

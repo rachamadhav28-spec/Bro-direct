@@ -84,6 +84,11 @@ class PreferencesStore(context: Context) {
         get() = str("mail_secret", "")
         set(value) { sp.edit().putString("mail_secret", value).apply() }
 
+    /** Show the always-on floating circle over other apps. */
+    var bubbleEnabled: Boolean
+        get() = sp.getBoolean("bubble_enabled", false)
+        set(value) { sp.edit().putBoolean("bubble_enabled", value).apply() }
+
     var wakeEnabled: Boolean
         get() = sp.getBoolean("wake_enabled", false)
         set(value) { sp.edit().putBoolean("wake_enabled", value).apply() }

@@ -158,6 +158,29 @@ fun SettingsScreen(
             prefs.language = speechLang
         }) { Text("Switch speech language") }
 
+        Heading("Floating circle")
+        var bubbleOn by remember(tick) { mutableStateOf(prefs.bubbleEnabled && android.provider.Settings.canDrawOverlays(ctx)) }
+        SwitchRow("Show BRO's circle on every screen", bubbleOn) { on ->
+            if (on && !android.provider.Settings.canDrawOverlays(ctx)) {
+                com.bro.assistant.security.LockGrace.allowFor(5 * 60_000L)
+                ctx.startActivity(
+                    android.content.Intent(
+                        android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        android.net.Uri.parse("package:" + ctx.packageName)
+                    ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                )
+                prefs.bubbleEnabled = true
+            } else {
+                bubbleOn = on; prefs.bubbleEnabled = on
+                if (on) com.bro.assistant.BubbleService.start(ctx) else com.bro.assistant.BubbleService.stop(ctx)
+            }
+        }
+        Text(
+            "A round light that floats over other apps. It cycles through 100 colours while idle, turns purple when listening, " +
+                "orange when thinking, green when a task is done and red when it fails. Drag it to move it, tap it to open BRO.",
+            color = Color.Gray, fontSize = 12.sp
+        )
+
         Heading("Wake phrase")
         OutlinedTextField(
             value = wakePhrases, onValueChange = { wakePhrases = it; saved = false },
