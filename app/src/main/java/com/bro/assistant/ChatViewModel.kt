@@ -77,7 +77,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         onProblem = { message ->
             partialText = ""
             state = BroState.IDLE
-            addMessage(false, message)
+            if (!quietListen) addMessage(false, message)
         }
     )
 
@@ -155,6 +155,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         state = BroState.LISTENING
         stt.start()
     }
+
+    /** True while the floating circle is listening in short rounds: silence must not spam the chat. */
+    @Volatile var quietListen = false
+    val isBusy: Boolean get() = busy
+    fun finishListening() { stt.finish() }
 
     fun stopListening() {
         stt.stop()

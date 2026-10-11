@@ -79,6 +79,9 @@ class SpeechInput(
         }
     }
 
+    /** Stops listening but still returns what was heard so far. */
+    fun finish() { try { recognizer?.stopListening() } catch (_: Exception) {} }
+
     fun stop() {
         recognizer?.cancel()
         destroy()

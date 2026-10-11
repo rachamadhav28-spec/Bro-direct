@@ -24,11 +24,17 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import androidx.core.content.ContextCompat
+import com.bro.assistant.memory.PreferencesStore
 import kotlin.math.abs
 import kotlin.math.sin
 
 /** Lets the view and the service read BRO's current state. */
-object BubbleBus { @Volatile var state: BroState = BroState.IDLE }
+object BubbleBus {
+    @Volatile var state: BroState = BroState.IDLE
+    /** True while the circle is in "listen 6 seconds, rest 1 second" mode. */
+    @Volatile var listening: Boolean = false
+    @Volatile var vm: ChatViewModel? = null
+}
 
 /**
  * A round floating light that stays on top of every screen.
@@ -37,12 +43,74 @@ object BubbleBus { @Volatile var state: BroState = BroState.IDLE }
  */
 class BubbleService : Service() {
 
+    private val main = Handler(Looper.getMainLooper())
+    private var phaseListen = false
+    private var phaseEnd = 0L
+    private var finishedAt = 0L
+
+    private val loop = object : Runnable {
+        override fun run() {
+            if (!BubbleBus.listening) return
+            val vm = BubbleBus.vm
+            if (vm == null) { stopListeningMode(); return }
+            val now = android.os.SystemClock.elapsedRealtime()
+            if (phaseListen) {
+                if (vm.state != BroState.LISTENING) { phaseListen = false; phaseEnd = now + REST_MS; finishedAt = 0 }   // ended early or got a result
+                else if (now >= phaseEnd) { vm.finishListening(); phaseListen = false; phaseEnd = now + REST_MS; finishedAt = now }
+            } else {
+                if (finishedAt > 0 && vm.state == BroState.LISTENING && now - finishedAt > 5000) { vm.stopListening(); finishedAt = 0 }
+                if (now >= phaseEnd && vm.state == BroState.IDLE && !vm.isBusy) {
+                    vm.quietListen = true
+                    vm.startListening()
+                    phaseListen = true; phaseEnd = now + LISTEN_MS
+                }
+            }
+            main.postDelayed(this, 200)
+        }
+    }
+
+    fun startListeningMode() {
+        if (BubbleBus.listening) return
+        if (androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            android.widget.Toast.makeText(this, "Open BRO once and allow the microphone first.", android.widget.Toast.LENGTH_LONG).show()
+            try { startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (_: Exception) {}
+            return
+        }
+        val vm = BubbleBus.vm
+        if (vm == null) {
+            // BRO's brain is not loaded yet (fresh start): open BRO for a moment, it comes straight back here.
+            try { startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP).putExtra(EXTRA_BUBBLE_LISTEN, true)) } catch (_: Exception) {}
+            return
+        }
+        // the microphone may only be used by a foreground service of the microphone type
+        try {
+            if (Build.VERSION.SDK_INT >= 30) startForeground(2002, ongoingNote(), ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
+        } catch (e: Exception) { ErrorHandler.log("BubbleService", "microphone type refused", e) }
+        BroListenerService.setPaused(true)   // the wake-phrase listener would fight for the microphone
+        BubbleBus.listening = true
+        phaseListen = false; phaseEnd = 0; finishedAt = 0
+        view?.invalidate()
+        main.post(loop)
+    }
+
+    fun stopListeningMode() {
+        if (!BubbleBus.listening) return
+        BubbleBus.listening = false
+        main.removeCallbacks(loop)
+        BubbleBus.vm?.let { it.quietListen = false; if (it.state == BroState.LISTENING) it.stopListening() }
+        try {
+            if (Build.VERSION.SDK_INT >= 34) startForeground(2002, ongoingNote(), ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        } catch (_: Exception) {}
+        if (PreferencesStore(this).wakeEnabled) BroListenerService.setPaused(false)
+    }
+
     private var wm: WindowManager? = null
     private var view: BubbleView? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        instance = this
         startAsForeground()
         if (view == null) addBubble()
         return START_STICKY
@@ -51,16 +119,20 @@ class BubbleService : Service() {
     private fun startAsForeground() {
         val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= 26) nm.createNotificationChannel(NotificationChannel("bro_bubble", "BRO floating circle", NotificationManager.IMPORTANCE_MIN))
-        val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
-        val n: Notification = Notification.Builder(this, "bro_bubble")
-            .setSmallIcon(android.R.drawable.presence_online)
-            .setContentTitle("BRO is on")
-            .setContentText("Floating circle is showing. Turn it off in BRO settings.")
-            .setContentIntent(open).setOngoing(true).build()
+        val n = ongoingNote()
         try {
             if (Build.VERSION.SDK_INT >= 34) startForeground(2002, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
             else startForeground(2002, n)
         } catch (e: Exception) { ErrorHandler.log("BubbleService", "foreground start failed", e) }
+    }
+
+    private fun ongoingNote(): Notification {
+        val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
+        return Notification.Builder(this, "bro_bubble")
+            .setSmallIcon(android.R.drawable.presence_online)
+            .setContentTitle("BRO is on")
+            .setContentText("Tap the circle to make BRO listen. Turn it off in BRO settings.")
+            .setContentIntent(open).setOngoing(true).build()
     }
 
     private fun addBubble() {
@@ -92,7 +164,7 @@ class BubbleService : Service() {
                     }
                     MotionEvent.ACTION_UP -> {
                         if (moved) sp.edit().putInt("x", lp.x).putInt("y", lp.y).apply()
-                        else try { startActivity(Intent(this@BubbleService, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)) } catch (_: Exception) {}
+                        else if (BubbleBus.listening) stopListeningMode() else startListeningMode()
                     }
                 }
                 return true
@@ -103,6 +175,8 @@ class BubbleService : Service() {
     }
 
     override fun onDestroy() {
+        stopListeningMode()
+        instance = null
         view?.let { it.stop(); try { wm?.removeView(it) } catch (_: Exception) {} }
         view = null
         super.onDestroy()
@@ -150,6 +224,11 @@ class BubbleService : Service() {
             paint.shader = null
             paint.color = shown
             c.drawCircle(cx, cy, r, paint)
+            if (BubbleBus.listening) {
+                paint.style = Paint.Style.STROKE; paint.strokeWidth = width * 0.045f; paint.color = Color.WHITE
+                c.drawCircle(cx, cy, width / 2f - paint.strokeWidth, paint)
+                paint.style = Paint.Style.FILL
+            }
             paint.color = Color.argb(110, 255, 255, 255)
             c.drawCircle(cx - r * 0.28f, cy - r * 0.3f, r * 0.28f, paint)
         }
@@ -163,6 +242,15 @@ class BubbleService : Service() {
     }
 
     companion object {
+        const val EXTRA_BUBBLE_LISTEN = "bro_bubble_listen"
+        private const val LISTEN_MS = 6000L   // microphone on
+        private const val REST_MS = 1000L     // microphone off
+
+        @Volatile private var instance: BubbleService? = null
+
+        /** Called by the screen when it was opened only to load BRO, to start the listening rounds. */
+        fun beginListening() { instance?.startListeningMode() }
+
         /** Hue (degrees) of idle colour number [i]: spread over yellow, cyan-blue and pink, skipping red, orange, green, purple. */
         private fun hueFor(i: Int): Float {
             // usable ranges: yellow 48-75, cyan to blue 170-250, pink 305-340  (total 27+80+35 = 142 degrees)

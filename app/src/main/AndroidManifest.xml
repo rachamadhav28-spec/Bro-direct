@@ -84,7 +84,7 @@
         <service
             android:name=".BubbleService"
             android:exported="false"
-            android:foregroundServiceType="specialUse">
+            android:foregroundServiceType="specialUse|microphone">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Floating status circle that shows BRO's state over other apps" />

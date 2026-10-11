@@ -269,6 +269,12 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun handleWake(i: Intent?) {
+        BubbleBus.vm = vm
+        if (i != null && i.getBooleanExtra(BubbleService.EXTRA_BUBBLE_LISTEN, false)) {
+            i.removeExtra(BubbleService.EXTRA_BUBBLE_LISTEN)
+            BubbleService.beginListening()
+            moveTaskToBack(true)
+        }
         if (i != null && i.getBooleanExtra(BroListenerService.EXTRA_WAKE, false)) {
             i.removeExtra(BroListenerService.EXTRA_WAKE)
             vm.onWake()
