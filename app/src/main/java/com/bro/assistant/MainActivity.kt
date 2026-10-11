@@ -45,28 +45,37 @@ class MainActivity : FragmentActivity() {
     private var showHistory by mutableStateOf(false)
     private var tick by mutableStateOf(0)
 
-    // app lock: fingerprint / screen lock when BRO opens or comes back after a while
+    // app lock: BRO's own PIN / password / pattern (set in Settings), asked when BRO opens
+    // or comes back after 30 seconds away, and before risky actions
     private var locked by mutableStateOf(false)
-    private var lockMessage by mutableStateOf("Unlock with your fingerprint or screen lock.")
-    private var promptShowing = false
+    private var lockFlow by mutableStateOf<String?>(null)       // "pin" | "password" | "pattern" | "off"
+    private var verifyAction by mutableStateOf<(() -> Unit)?>(null)
     private var leftAt = 0L
 
-    private fun lockEnabled() = vm.prefs.appLock && com.bro.assistant.security.AppLock.available(this)
+    private fun lockEnabled() = com.bro.assistant.security.LockStore.isSet(this)
+    private fun waitSeconds(): Int = ((com.bro.assistant.security.LockStore.waitMs(this) + 999) / 1000).toInt()
+    private fun check(secret: String) = com.bro.assistant.security.LockStore.verify(this, secret)
 
-    private fun unlock() {
-        if (!locked || promptShowing) return
-        promptShowing = true
-        com.bro.assistant.security.AppLock.authenticate(
-            this, "Unlock BRO",
-            onSuccess = { promptShowing = false; locked = false },
-            onFailure = { promptShowing = false; lockMessage = "Not unlocked: $it" }
-        )
-    }
+    private fun biometricOffer(onOk: () -> Unit): (() -> Unit)? =
+        if (vm.prefs.lockBiometric && com.bro.assistant.security.AppLock.biometricAvailable(this))
+            ({ com.bro.assistant.security.AppLock.authenticateBiometric(this, "Unlock BRO", onSuccess = onOk) })
+        else null
 
-    /** Runs [action] only after the owner confirms (used before risky actions BRO wants to take). */
+    /** Forgot the secret: the phone's own lock proves you are the owner, then the BRO lock is removed. */
+    private fun forgotOffer(): (() -> Unit)? =
+        if (com.bro.assistant.security.AppLock.available(this))
+            ({
+                com.bro.assistant.security.AppLock.authenticate(this, "Reset BRO lock", onSuccess = {
+                    com.bro.assistant.security.LockStore.clear(this)
+                    locked = false; verifyAction = null; tick++
+                })
+            })
+        else null
+
+    /** Runs [action] only after the BRO lock is entered (used before risky actions BRO wants to take). */
     private fun secure(action: () -> Unit) {
         if (!lockEnabled()) { action(); return }
-        com.bro.assistant.security.AppLock.authenticate(this, "Confirm this action", onSuccess = action)
+        verifyAction = action
     }
 
     private var pendingPermission: String? = null
@@ -93,13 +102,47 @@ class MainActivity : FragmentActivity() {
             vm.reportCrash(it)
         }
         locked = lockEnabled()
+        showSettings = savedInstanceState?.getBoolean("s") ?: false
+        showHistory = savedInstanceState?.getBoolean("h") ?: false
         handleWake(intent)
 
         setContent {
             BroTheme {
                 Box(Modifier.fillMaxSize()) {
                     if (locked) {
-                        com.bro.assistant.ui.LockScreen(lockMessage) { unlock() }
+                        com.bro.assistant.ui.BroLockScreen(
+                            type = com.bro.assistant.security.LockStore.type(this@MainActivity),
+                            message = "BRO is locked",
+                            onSubmit = { secret -> check(secret).also { ok -> if (ok) locked = false } },
+                            waitSeconds = { waitSeconds() },
+                            onBiometric = biometricOffer { locked = false },
+                            onForgot = forgotOffer()
+                        )
+                    } else if (lockFlow != null) {
+                        BackHandler { lockFlow = null }
+                        val flow = lockFlow!!
+                        com.bro.assistant.ui.LockSetupFlow(
+                            newType = if (flow == "off") com.bro.assistant.security.LockStore.type(this@MainActivity) else flow,
+                            hasOld = lockEnabled(),
+                            oldType = com.bro.assistant.security.LockStore.type(this@MainActivity),
+                            verifyOld = { check(it) },
+                            waitSeconds = { waitSeconds() },
+                            onSave = { secret ->
+                                if (flow == "off") com.bro.assistant.security.LockStore.clear(this@MainActivity)
+                                else com.bro.assistant.security.LockStore.set(this@MainActivity, flow, secret)
+                                lockFlow = null; tick++
+                            },
+                            onCancel = { lockFlow = null }
+                        )
+                    } else if (verifyAction != null) {
+                        com.bro.assistant.ui.BroLockScreen(
+                            type = com.bro.assistant.security.LockStore.type(this@MainActivity),
+                            message = "Confirm this action",
+                            onSubmit = { secret -> check(secret).also { ok -> if (ok) { val a = verifyAction; verifyAction = null; a?.invoke() } } },
+                            waitSeconds = { waitSeconds() },
+                            onBiometric = biometricOffer { val a = verifyAction; verifyAction = null; a?.invoke() },
+                            onCancel = { verifyAction = null }
+                        )
                     } else if (showSettings) {
                         BackHandler { showSettings = false }
                         SettingsScreen(
@@ -107,7 +150,8 @@ class MainActivity : FragmentActivity() {
                             tick = tick,
                             onBack = { showSettings = false },
                             onRequest = { requestPermission(it) },
-                            onWakeToggle = { setWake(it) }
+                            onWakeToggle = { setWake(it) },
+                            onLockSetup = { lockFlow = it }
                         )
                     } else if (showHistory) {
                         BackHandler { showHistory = false }
@@ -148,6 +192,12 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBoolean("s", showSettings)
+        outState.putBoolean("h", showHistory)
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
@@ -158,15 +208,17 @@ class MainActivity : FragmentActivity() {
         super.onStart()
         vm.appVisible = true
         BroListenerService.setPaused(true) // free the microphone while BRO is on screen
-        if (!locked && leftAt > 0 && lockEnabled() &&
+        if (!locked && leftAt > 0 && lockEnabled() && !com.bro.assistant.security.LockGrace.active() &&
             android.os.SystemClock.elapsedRealtime() - leftAt > 30_000L) locked = true
-        if (locked) unlock()
+        // the offline model was released while BRO was away: load it again in the background
+        vm.warmUpBrain()
         tick++
     }
 
     override fun onStop() {
         vm.appVisible = false
-        if (!promptShowing) leftAt = android.os.SystemClock.elapsedRealtime()
+        leftAt = android.os.SystemClock.elapsedRealtime()
+        vm.freeBrainMemory()
         if (vm.prefs.wakeEnabled) BroListenerService.setPaused(false)
         super.onStop()
     }

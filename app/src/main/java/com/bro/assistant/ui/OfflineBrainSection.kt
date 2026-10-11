@@ -46,27 +46,12 @@ fun OfflineBrainSection(prefs: PreferencesStore) {
     var status by remember { mutableStateOf("") }
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
-        if (uri != null) {
-            status = "Copying the model file..."
-            scope.launch {
-                val ok = withContext(Dispatchers.IO) {
-                    try {
-                        val display = ctx.contentResolver.query(uri, null, null, null, null)?.use { c ->
-                            val i = c.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
-                            if (c.moveToFirst() && i >= 0) c.getString(i) else null
-                        } ?: uri.lastPathSegment.orEmpty()
-                        LocalLlm.deleteAll(ctx)
-                        ctx.contentResolver.openInputStream(uri)?.use { input ->
-                            LocalLlm.fileFor(ctx, display).outputStream().use { input.copyTo(it) }
-                        }
-                        prefs.localModelName = display
-                        true
-                    } catch (e: Exception) { false }
-                }
-                installed = LocalLlm.isInstalled(ctx)
-                status = if (ok && installed) "Offline brain installed." else "Could not copy that file."
-            }
-        }
+        if (uri != null) LocalLlm.copyFrom(ctx, uri, prefs)
+    }
+    // the copy runs in the background (not tied to this screen); show its progress and result here
+    LaunchedEffect(LocalLlm.copyStatus) {
+        if (LocalLlm.copyStatus.isNotEmpty()) status = LocalLlm.copyStatus
+        installed = LocalLlm.isInstalled(ctx)
     }
 
     // follow the download while it runs
@@ -82,7 +67,9 @@ fun OfflineBrainSection(prefs: PreferencesStore) {
                 val total = c.getLong(c.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
                 when (st) {
                     DownloadManager.STATUS_SUCCESSFUL -> {
-                        installed = LocalLlm.isInstalled(ctx); status = "Download finished. Offline brain installed."; done = true
+                        installed = LocalLlm.finishPart(ctx, link.trim()) && LocalLlm.isInstalled(ctx)
+                        status = if (installed) "Download finished. Offline brain installed." else "The download finished but the file looks incomplete."
+                        done = true
                     }
                     DownloadManager.STATUS_FAILED -> { status = "Download failed. Check the link and your internet."; done = true }
                     else -> status = "Downloading... " + (got / 1_000_000) + " MB" + (if (total > 0) " of " + (total / 1_000_000) + " MB" else "")
@@ -121,13 +108,17 @@ fun OfflineBrainSection(prefs: PreferencesStore) {
                     val req = DownloadManager.Request(Uri.parse(link.trim()))
                         .setTitle("BRO offline brain")
                         .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                        .setDestinationInExternalFilesDir(ctx, null, LocalLlm.fileNameFor(link.trim()))
+                        .setDestinationInExternalFilesDir(ctx, null, LocalLlm.partFile(ctx, link.trim()).name)
                     prefs.localModelName = link.trim().substringAfterLast('/').substringBefore('?')
                     downloadId = dm.enqueue(req)
                     status = "Starting download..."
                 } catch (e: Exception) { status = "Could not start the download: ${e.message}" }
             }) { Text("Download") }
-            OutlinedButton(onClick = { picker.launch(arrayOf("*/*")) }) { Text("Choose file") }
+            OutlinedButton(onClick = {
+                // the picker leaves BRO for a while: do not lock BRO because of that
+                com.bro.assistant.security.LockGrace.allowFor(15 * 60_000L)
+                picker.launch(arrayOf("*/*"))
+            }) { Text("Choose file") }
             if (installed) OutlinedButton(onClick = {
                 LocalLlm.deleteAll(ctx); installed = false; status = "Offline brain removed."
             }) { Text("Remove") }

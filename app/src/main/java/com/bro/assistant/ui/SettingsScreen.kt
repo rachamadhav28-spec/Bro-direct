@@ -42,7 +42,8 @@ fun SettingsScreen(
     tick: Int,
     onBack: () -> Unit,
     onRequest: (String) -> Unit,
-    onWakeToggle: (Boolean) -> Unit
+    onWakeToggle: (Boolean) -> Unit,
+    onLockSetup: (String) -> Unit = {}
 ) {
     val ctx = LocalContext.current
     val prefs = vm.prefs
@@ -93,23 +94,27 @@ fun SettingsScreen(
         Heading("Offline brain (no internet, no API key)")
         OfflineBrainSection(prefs)
 
-        Heading("Security")
-        val lockAvailable = remember(tick) { com.bro.assistant.security.AppLock.available(ctx) }
-        var appLock by remember { mutableStateOf(prefs.appLock) }
-        SwitchRow("Lock BRO with fingerprint / screen lock", appLock && lockAvailable) { want ->
-            if (want) { prefs.appLock = true; appLock = true }
-            else {
-                // turning the lock off needs the owner to prove it first
-                val act = ctx as? androidx.fragment.app.FragmentActivity
-                if (act == null || !lockAvailable) { prefs.appLock = false; appLock = false }
-                else com.bro.assistant.security.AppLock.authenticate(act, "Turn off BRO lock", onSuccess = { prefs.appLock = false; appLock = false })
+        Heading("Security (BRO lock)")
+        val lockType = remember(tick) { com.bro.assistant.security.LockStore.type(ctx) }
+        val lockOn = remember(tick) { com.bro.assistant.security.LockStore.isSet(ctx) }
+        var bio by remember { mutableStateOf(prefs.lockBiometric) }
+        Text(
+            if (lockOn) "BRO lock is ON: " + lockType + ". It is asked when BRO opens, after you were away 30 seconds, and before risky taps in other apps."
+            else "BRO lock is OFF. Choose a PIN, password or pattern. It belongs to BRO only, not your phone.",
+            color = if (lockOn) Color(0xFF66BB6A) else Color.LightGray, fontSize = 13.sp
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = { onLockSetup("pin") }) { Text("PIN") }
+            OutlinedButton(onClick = { onLockSetup("password") }) { Text("Password") }
+            OutlinedButton(onClick = { onLockSetup("pattern") }) { Text("Pattern") }
+        }
+        if (lockOn) {
+            OutlinedButton(onClick = { onLockSetup("off") }) { Text("Turn lock off") }
+            if (com.bro.assistant.security.AppLock.biometricAvailable(ctx)) {
+                SwitchRow("Also unlock with fingerprint", bio) { bio = it; prefs.lockBiometric = it }
             }
         }
-        Text(
-            if (lockAvailable) "BRO asks for your fingerprint or screen lock when it opens or after you were away 30 seconds, and before risky taps inside other apps."
-            else "Set a screen lock or fingerprint in Android Settings first, then this lock can work.",
-            color = Color.Gray, fontSize = 12.sp
-        )
+        Text("Forgot it? On the lock screen, \"Forgot\" lets your phone's own lock reset BRO's lock.", color = Color.Gray, fontSize = 12.sp)
 
         Heading("GitHub")
         OutlinedTextField(

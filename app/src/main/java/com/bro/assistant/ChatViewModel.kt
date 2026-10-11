@@ -375,6 +375,18 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         addMessage(false, "BRO closed unexpectedly last time. Please send this to the developer:\n$info")
     }
 
+    /** Loads the offline model in the background (it is released when BRO goes to the background). */
+    fun warmUpBrain() {
+        if (com.bro.assistant.ai.LocalLlm.isInstalled(app)) {
+            viewModelScope.launch { com.bro.assistant.ai.LocalLlm.warmUp(prefs) }
+        }
+    }
+
+    /** Frees the model's memory while BRO is in the background so Android does not kill BRO for it. */
+    fun freeBrainMemory() {
+        viewModelScope.launch { com.bro.assistant.ai.LocalLlm.releaseWhenIdle() }
+    }
+
     fun notifyPermissionDenied() {
         addMessage(false, "Without that permission I can't do this. You can allow it later in Settings.")
     }

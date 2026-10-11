@@ -40,4 +40,23 @@ object AppLock {
             .build()
         prompt.authenticate(info)
     }
+
+    /** Fingerprint / face only (no phone PIN fallback). */
+    fun biometricAvailable(context: Context): Boolean =
+        BiometricManager.from(context).canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK) == BiometricManager.BIOMETRIC_SUCCESS
+
+    fun authenticateBiometric(activity: FragmentActivity, title: String, onSuccess: () -> Unit, onFailure: (String) -> Unit = {}) {
+        val prompt = BiometricPrompt(
+            activity, ContextCompat.getMainExecutor(activity),
+            object : BiometricPrompt.AuthenticationCallback() {
+                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) = onSuccess()
+                override fun onAuthenticationError(errorCode: Int, errString: CharSequence) = onFailure(errString.toString())
+            }
+        )
+        prompt.authenticate(
+            BiometricPrompt.PromptInfo.Builder().setTitle(title)
+                .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_WEAK)
+                .setNegativeButtonText("Use BRO PIN").build()
+        )
+    }
 }

@@ -69,6 +69,11 @@ class PreferencesStore(context: Context) {
         get() = sp.getBoolean("app_lock", true)
         set(value) { sp.edit().putBoolean("app_lock", value).apply() }
 
+    /** Also allow fingerprint on the BRO lock screen (the BRO PIN/password/pattern stays the main key). */
+    var lockBiometric: Boolean
+        get() = sp.getBoolean("lock_biometric", false)
+        set(value) { sp.edit().putBoolean("lock_biometric", value).apply() }
+
     var wakeEnabled: Boolean
         get() = sp.getBoolean("wake_enabled", false)
         set(value) { sp.edit().putBoolean("wake_enabled", value).apply() }

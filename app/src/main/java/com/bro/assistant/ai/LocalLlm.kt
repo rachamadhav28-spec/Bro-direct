@@ -9,6 +9,7 @@ import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
 import com.google.mediapipe.tasks.genai.llminference.LlmInference
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -40,10 +41,62 @@ object LocalLlm {
         return if (lm.exists()) lm else File(dir(context), "offline_model.task")
     }
 
+    /** Downloads and copies go to a ".part" file first, so a half-finished file is never used as the model. */
+    fun partFile(context: Context, link: String): File = File(dir(context), fileNameFor(link) + ".part")
+
+    fun finishPart(context: Context, link: String): Boolean {
+        val part = partFile(context, link)
+        if (!part.exists() || part.length() < 1_000_000L) return false
+        val dest = fileFor(context, link)
+        File(dir(context), "offline_model.litertlm").delete(); File(dir(context), "offline_model.task").delete()
+        return part.renameTo(dest)
+    }
+
+    /** Copy progress / result for the "Choose file" button (kept here so it survives screen changes). */
+    var copyStatus by androidx.compose.runtime.mutableStateOf("")
+    private val copyScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.IO)
+
+    fun copyFrom(context: Context, uri: android.net.Uri, prefs: PreferencesStore) {
+        val app = context.applicationContext
+        copyStatus = "Copying the model file... this can take a few minutes."
+        copyScope.launch {
+            try {
+                val name = app.contentResolver.query(uri, null, null, null, null)?.use { c ->
+                    val i = c.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                    if (c.moveToFirst() && i >= 0) c.getString(i) else null
+                } ?: uri.lastPathSegment.orEmpty()
+                release()
+                val part = partFile(app, name)
+                part.delete()
+                app.contentResolver.openInputStream(uri)?.use { input ->
+                    part.outputStream().use { out ->
+                        val buf = ByteArray(1 shl 20)
+                        var total = 0L
+                        while (true) {
+                            val n = input.read(buf); if (n < 0) break
+                            out.write(buf, 0, n); total += n
+                            if (total % (64L shl 20) < (1 shl 20)) copyStatus = "Copying... " + total / 1_000_000 + " MB"
+                        }
+                    }
+                }
+                prefs.localModelName = name
+                copyStatus = if (finishPart(app, name)) "Offline brain installed." else "That file looks incomplete or is not a model file."
+            } catch (e: Throwable) {
+                ErrorHandler.log("LocalLlm", "copy failed", e)
+                copyStatus = "Could not copy that file: ${e.message ?: e.javaClass.simpleName}"
+            }
+        }
+    }
+
+    /** Releases the model's memory once no answer is being generated. */
+    suspend fun releaseWhenIdle() = withContext(Dispatchers.IO) { lock.withLock { release() } }
+
     fun deleteAll(context: Context) {
         release()
         File(dir(context), "offline_model.litertlm").delete()
         File(dir(context), "offline_model.task").delete()
+        File(dir(context), "offline_model.litertlm.part").delete()
+        File(dir(context), "offline_model.task.part").delete()
     }
 
     fun isInstalled(context: Context): Boolean = modelFile(context).let { it.exists() && it.length() > 1_000_000L }
