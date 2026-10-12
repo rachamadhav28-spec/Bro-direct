@@ -102,6 +102,16 @@ class PreferencesStore(context: Context) {
         get() = sp.getBoolean("proactive_enabled", false)
         set(value) { sp.edit().putBoolean("proactive_enabled", value).apply() }
 
+    /** Read new messages aloud when the phone is awake (needs notification access). */
+    var readMessages: Boolean
+        get() = sp.getBoolean("read_messages", false)
+        set(value) { sp.edit().putBoolean("read_messages", value).apply() }
+
+    /** Part of your car's Bluetooth name: drive mode starts when it connects. */
+    var driveBtName: String
+        get() = str("drive_bt", "")
+        set(value) { sp.edit().putString("drive_bt", value.trim()).apply() }
+
     var wakeEnabled: Boolean
         get() = sp.getBoolean("wake_enabled", false)
         set(value) { sp.edit().putBoolean("wake_enabled", value).apply() }

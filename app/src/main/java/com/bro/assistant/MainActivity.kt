@@ -61,6 +61,31 @@ class MainActivity : FragmentActivity() {
             ({ com.bro.assistant.security.AppLock.authenticateBiometric(this, "Unlock BRO", onSuccess = onOk) })
         else null
 
+    private var voiceStt: com.bro.assistant.voice.SpeechInput? = null
+
+    /** "Say phrase" button on the lock screen. Null when no voice phrase is set. */
+    private fun voiceOffer(onOk: () -> Unit): (() -> Unit)? {
+        if (!com.bro.assistant.security.VoiceLock.isSet(this)) return null
+        return {
+            if (!PermissionManager.has(this, Manifest.permission.RECORD_AUDIO)) {
+                android.widget.Toast.makeText(this, "Allow the microphone for BRO in Settings first.", android.widget.Toast.LENGTH_LONG).show()
+            } else if (com.bro.assistant.security.VoiceLock.waitMs(this) > 0) {
+                android.widget.Toast.makeText(this, "Too many tries. Wait a minute.", android.widget.Toast.LENGTH_LONG).show()
+            } else {
+                android.widget.Toast.makeText(this, "Listening... say your phrase", android.widget.Toast.LENGTH_SHORT).show()
+                voiceStt?.destroy()
+                voiceStt = com.bro.assistant.voice.SpeechInput(
+                    this, onPartial = {},
+                    onFinal = { said ->
+                        if (com.bro.assistant.security.VoiceLock.verify(this, said)) onOk()
+                        else android.widget.Toast.makeText(this, "Phrase not recognised.", android.widget.Toast.LENGTH_SHORT).show()
+                    },
+                    onProblem = { android.widget.Toast.makeText(this, "I didn't catch that. Try again.", android.widget.Toast.LENGTH_SHORT).show() }
+                ).also { it.start() }
+            }
+        }
+    }
+
     // first-run Gmail sign-in, and lock recovery (fingerprint or emailed code)
     private var needLogin by mutableStateOf(false)
     private var recovery by mutableStateOf(false)
@@ -159,6 +184,7 @@ class MainActivity : FragmentActivity() {
                             onSubmit = { secret -> check(secret).also { ok -> if (ok) locked = false } },
                             waitSeconds = { waitSeconds() },
                             onBiometric = biometricOffer { locked = false },
+                            onVoice = voiceOffer { locked = false },
                             onForgot = { recovery = true }
                         )
                     } else if (lockFlow != null) {

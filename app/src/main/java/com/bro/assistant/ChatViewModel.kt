@@ -182,8 +182,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     // ---------- voice ----------
 
-    fun startListening() {
-        if (busy) return
+    fun startListening(force: Boolean = false) {
+        if (busy && !force) return
         tts.stop()
         partialText = ""
         state = BroState.LISTENING
@@ -192,7 +192,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     /** True while the floating circle is listening in short rounds: silence must not spam the chat. */
     @Volatile var quietListen = false
-    val isBusy: Boolean get() = busy
+    val isBusy: Boolean get() = busy && confirmDeferred == null
     fun finishListening() { stt.finish() }
 
     fun stopListening() {
@@ -212,11 +212,21 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     private val queue = ArrayDeque<String>()
     private var currentJob: kotlinx.coroutines.Job? = null
+    private val yesRx = Regex("^(?:yes|yeah|yep|yup|sure|ok|okay|send\\s+it|do\\s+it|go\\s+ahead|confirm|haan|avunu)[.!\\s]*$", RegexOption.IGNORE_CASE)
+    private val noRx = Regex("^(?:no|nope|nah|cancel|don'?t|do\\s+not|stop|wait|vaddu|kaadu)[.!\\s]*$", RegexOption.IGNORE_CASE)
     private val stopRx = Regex("^(?:stop|cancel|abort|stop (?:the )?task|cancel (?:the )?task|stop everything|nilupu|aapu)[.!]*$", RegexOption.IGNORE_CASE)
 
     fun send(raw: String) {
         val text = raw.trim()
         if (text.isEmpty()) return
+        // a spoken "yes" / "no" answers a waiting question (but never the risky-tap confirmation: that needs your lock)
+        confirmDeferred?.let { d ->
+            val q = confirmPrompt.orEmpty()
+            if (!d.isCompleted && !q.startsWith("BRO wants to tap")) {
+                if (yesRx.matches(text)) { d.complete(true); return }
+                if (noRx.matches(text)) { d.complete(false); return }
+            }
+        }
         if (busy) {
             if (stopRx.matches(text)) { cancelAll(); return }
             // keep working: line the new command up behind the current one
@@ -320,6 +330,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             convo = true; silentRounds = 0
             return StepOutcome(true, "I'm all ears, boss. Say \"that's all\" when you're done.", BroState.IDLE)
         }
+        // "call back" after a message
+        com.bro.assistant.features.MessageReplies.callBackTarget(text)?.let { return runCommand("call $it", quiet) }
+        // reminders, notes, quiz, focus, drive mode, message replies
+        com.bro.assistant.features.Features.handle(app, prefs, text) { q -> askConfirm(q) }?.let { return StepOutcome(true, it, BroState.SUCCESS) }
         // memory: remember / forget / "what is my ..." (works offline)
         com.bro.assistant.ai.MemoryCommands.handle(app, text)?.let { return StepOutcome(true, it, BroState.SUCCESS) }
         // "good morning": time, alarm, weather, calendar, tasks finished while you were away
@@ -363,7 +377,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         val deferred = CompletableDeferred<Boolean>()
         confirmDeferred = deferred
         confirmPrompt = question
-        if (prefs.speakReplies) tts.speak(question)
+        val listenForAnswer = (convo || BubbleBus.listening) && !question.startsWith("BRO wants to tap")
+        if (listenForAnswer) state = BroState.IDLE
+        if (prefs.speakReplies) tts.speak(question, onDone = { if (convo && listenForAnswer) startListening(force = true) })
+        else if (convo && listenForAnswer) startListening(force = true)
         if (!appVisible) TaskNotifier.notifyDone(app, "BRO needs your OK: $question")
         val answer = withTimeoutOrNull(600_000L) { deferred.await() } ?: false
         confirmPrompt = null

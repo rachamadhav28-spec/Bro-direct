@@ -101,7 +101,7 @@ object Proactive {
     }
 
     @SuppressLint("MissingPermission")
-    private fun alert(ctx: Context, title: String, text: String) {
+    fun alert(ctx: Context, title: String, text: String) {
         if (PermissionManager.hasNotifications(ctx)) {
             if (Build.VERSION.SDK_INT >= 26) {
                 val nm = ctx.getSystemService(NotificationManager::class.java)
@@ -116,14 +116,18 @@ object Proactive {
         // say it aloud too, but only when the phone is awake, so BRO never talks in your pocket at night
         val prefs = PreferencesStore(ctx)
         val awake = (ctx.getSystemService(Context.POWER_SERVICE) as PowerManager).isInteractive
-        if (prefs.speakReplies && awake) {
-            var out: SpeechOutput? = null
-            out = SpeechOutput(ctx.applicationContext, prefs)
-            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                out?.speak(text, onDone = { out?.shutdown() })
-                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ out?.shutdown() }, 20000)
-            }, 1500)
-        }
+        if (prefs.speakReplies && awake) speakNow(ctx, text)
+    }
+
+    /** Speaks [text] with a short-lived voice, whatever the screen state. */
+    fun speakNow(ctx: Context, text: String) {
+        val prefs = PreferencesStore(ctx)
+        val out = SpeechOutput(ctx.applicationContext, prefs)
+        val h = android.os.Handler(android.os.Looper.getMainLooper())
+        h.postDelayed({
+            out.speak(text, onDone = { out.shutdown() })
+            h.postDelayed({ out.shutdown() }, 25000)
+        }, 1500)
     }
 }
 

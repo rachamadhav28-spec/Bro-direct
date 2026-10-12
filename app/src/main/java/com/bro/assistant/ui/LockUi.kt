@@ -129,6 +129,7 @@ fun BroLockScreen(
     onSubmit: (String) -> Boolean,
     waitSeconds: () -> Int,
     onBiometric: (() -> Unit)? = null,
+    onVoice: (() -> Unit)? = null,
     onForgot: (() -> Unit)? = null,
     onCancel: (() -> Unit)? = null
 ) {
@@ -159,9 +160,10 @@ fun BroLockScreen(
             Spacer(Modifier.height(18.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (onBiometric != null) OutlinedButton(onClick = onBiometric) { Text("Fingerprint") }
+                if (onVoice != null) OutlinedButton(onClick = onVoice) { Text("Say phrase") }
                 if (onCancel != null) OutlinedButton(onClick = onCancel) { Text("Cancel") }
             }
-            if (onForgot != null) TextButton(onClick = onForgot) { Text("Forgot? Use the phone's lock to reset", fontSize = 12.sp) }
+            if (onForgot != null) TextButton(onClick = onForgot) { Text("Forgot? Fingerprint or email code", fontSize = 12.sp) }
         }
     }
 }

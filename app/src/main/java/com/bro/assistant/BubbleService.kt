@@ -101,6 +101,7 @@ class BubbleService : Service() {
         instance = this
         startAsForeground()
         if (view == null) addBubble()
+        if (wantListen) { wantListen = false; main.postDelayed({ startListeningMode() }, 700) }
         return START_STICKY
     }
 
@@ -233,6 +234,11 @@ class BubbleService : Service() {
         const val EXTRA_BUBBLE_LISTEN = "bro_bubble_listen"
 
         @Volatile private var instance: BubbleService? = null
+
+        /** Set by drive mode: start the microphone rounds as soon as the circle is up. */
+        @Volatile var wantListen = false
+
+        fun stopListening() { wantListen = false; instance?.main?.post { instance?.stopListeningMode() } }
 
         /** Called by the screen when it was opened only to load BRO, to start the listening rounds. */
         fun beginListening() { instance?.startListeningMode() }

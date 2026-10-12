@@ -163,6 +163,27 @@ fun SettingsScreen(
             prefs.language = speechLang
         }) { Text("Switch speech language") }
 
+        if (com.bro.assistant.security.LockStore.isSet(ctx)) {
+            Heading("Voice unlock (optional)")
+            var voiceSet by remember(tick) { mutableStateOf(com.bro.assistant.security.VoiceLock.isSet(ctx)) }
+            var phrase by remember { mutableStateOf("") }
+            var voiceMsg by remember { mutableStateOf("") }
+            Text("Unlock BRO by saying a secret phrase of at least three words. It is less safe than your PIN: anyone who overhears it, or plays a recording, could unlock BRO. It never confirms risky actions.", color = Color.Gray, fontSize = 12.sp)
+            OutlinedTextField(
+                value = phrase, onValueChange = { phrase = it; voiceMsg = "" }, singleLine = true,
+                label = { Text(if (voiceSet) "New secret phrase" else "Secret phrase") },
+                visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth()
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = {
+                    if (com.bro.assistant.security.VoiceLock.set(ctx, phrase)) { voiceSet = true; phrase = ""; voiceMsg = "Saved. The lock screen now has a \"Say phrase\" button." }
+                    else voiceMsg = "Use at least three words."
+                }) { Text("Save phrase") }
+                if (voiceSet) OutlinedButton(onClick = { com.bro.assistant.security.VoiceLock.clear(ctx); voiceSet = false; voiceMsg = "Voice unlock removed." }) { Text("Remove") }
+            }
+            if (voiceMsg.isNotEmpty()) Text(voiceMsg, color = Color.LightGray, fontSize = 12.sp)
+        }
+
         Heading("Morning briefing and alerts")
         var city by remember(tick) { mutableStateOf(prefs.city) }
         OutlinedTextField(
@@ -189,6 +210,23 @@ fun SettingsScreen(
             }
         }
         if (facts.isNotEmpty()) OutlinedButton(onClick = { com.bro.assistant.memory.MemoryStore.clear(ctx); facts = emptyList() }) { Text("Forget everything") }
+
+        Heading("Messages and driving")
+        val listenerOn = remember(tick) { com.bro.assistant.features.MessageReplies.enabled(ctx) }
+        PermRow("Notification access (read and reply to messages)", listenerOn) {
+            com.bro.assistant.security.LockGrace.allowFor(5 * 60_000L)
+            ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+        }
+        var readMsgs by remember(tick) { mutableStateOf(prefs.readMessages) }
+        SwitchRow("Read new messages aloud (when the phone is awake)", readMsgs) { readMsgs = it; prefs.readMessages = it }
+        Text("Works with WhatsApp, Telegram and SMS. Say \"reply yes\", \"reply later\", \"reply <your words>\" or \"call back\". BRO asks before sending unless you turned that off.", color = Color.Gray, fontSize = 12.sp)
+        var carName by remember(tick) { mutableStateOf(prefs.driveBtName) }
+        OutlinedTextField(
+            value = carName, onValueChange = { carName = it; prefs.driveBtName = it },
+            label = { Text("Car Bluetooth name (starts drive mode)") }, singleLine = true, modifier = Modifier.fillMaxWidth()
+        )
+        if (Build.VERSION.SDK_INT >= 31) PermRow("Bluetooth (to notice your car)", com.bro.assistant.PermissionManager.has(ctx, Manifest.permission.BLUETOOTH_CONNECT)) { onRequest(Manifest.permission.BLUETOOTH_CONNECT) }
+        Text("Or just say \"drive mode\". Drive mode reads messages aloud even with the screen off and keeps the microphone on (needs the floating circle permission).", color = Color.Gray, fontSize = 12.sp)
 
         Heading("Floating circle")
         var bubbleOn by remember(tick) { mutableStateOf(prefs.bubbleEnabled && android.provider.Settings.canDrawOverlays(ctx)) }

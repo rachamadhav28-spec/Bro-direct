@@ -60,6 +60,7 @@ class BroAccessibilityService : AccessibilityService() {
             val pkg = event.packageName?.toString()
             if (!pkg.isNullOrBlank() && pkg != "com.android.systemui" && !pkg.contains("inputmethod")) {
                 currentPackage = pkg
+                try { com.bro.assistant.features.FocusGuard.onForeground(applicationContext, pkg) } catch (_: Exception) {}
             }
         }
     }
