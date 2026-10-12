@@ -69,7 +69,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     // ---------- conversation mode ("Hey BRO" keeps the mic going until you say "that's all") ----------
 
-    @Volatile var convo by mutableStateOf(false)
+    var convo by mutableStateOf(false)
         private set
     private var silentRounds = 0
     private val endConvoRx = Regex(
