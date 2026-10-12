@@ -27,6 +27,7 @@ class ActionPlanner(
     private val extra = ExtraCommands(context)
     private val local = LocalCommandParser(memory)
     private val ai = IntentParser(memory, prefs)
+    private val gemini = com.bro.assistant.ai.GeminiClient(prefs)
 
     suspend fun plan(text: String): PlanResult {
         // instant built-in answers (boss, greetings): no AI, no internet
@@ -48,13 +49,37 @@ class ActionPlanner(
                 return validated("On it. I'll work inside the app.", listOf(BroAction(ActionType.AGENT_TASK, mapOf("goal" to m.groupValues[1].trim()))))
             }
 
+        // which free AI keys are set and who does what
+        if (Regex("^(?:ai\\s+status|my\\s+(?:ai\\s+)?keys|which\\s+ai)\\b", RegexOption.IGNORE_CASE).containsMatchIn(text.trim())) {
+            return PlanResult(reply = com.bro.assistant.ai.Router.statusText(prefs))
+        }
+
         local.parse(text)?.let { return validated(it.reply, it.actions) }
 
         if (!prefs.hasBrain()) {
             return PlanResult(
                 error = "I couldn't understand that as a simple command, and no AI is set up. " +
-                    "Add a Gemini API key or install the offline brain in Settings, or try a simpler command."
+                    "Add a free AI key (Gemini, Groq, ...) or install the offline brain in Settings, or try a simpler command."
             )
+        }
+        // "divide <task>" (or a long multi-part message): split it and give each part to the best free AI
+        val divideCmd = Regex("^(?:divide|split|team)\\b(?:\\s+task)?[:,]?\\s+(.{8,})$", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
+            .find(text.trim())
+        val auto = divideCmd == null && prefs.hasProviderKeys() &&
+            com.bro.assistant.ai.Router.keyedProviders(prefs).size >= 2 &&
+            com.bro.assistant.ai.TaskDivider.looksBig(text)
+        if (divideCmd != null || auto) {
+            val task = divideCmd?.groupValues?.get(1)?.trim() ?: text.trim()
+            return try {
+                val answer = com.bro.assistant.ai.TaskDivider.run(prefs, gemini, task, memory.historyText().takeLast(1500))
+                SessionMemory.extractLastCode(answer)?.let { memory.lastCode = it }
+                PlanResult(reply = answer)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                ErrorHandler.log("ActionPlanner", "divide failed", e)
+                PlanResult(error = ErrorHandler.friendly(e))
+            }
         }
         if (looksLikeCode(text)) {
             return try {

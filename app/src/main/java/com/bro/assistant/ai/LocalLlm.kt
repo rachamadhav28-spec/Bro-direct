@@ -105,7 +105,7 @@ object LocalLlm {
 
     /** True when the next request will be answered by the offline model. */
     fun willUse(prefs: PreferencesStore): Boolean =
-        isInstalled(prefs.appContext) && (prefs.brainMode == "offline" || prefs.apiKey.isBlank())
+        isInstalled(prefs.appContext) && (prefs.brainMode == "offline" || (prefs.apiKey.isBlank() && !prefs.hasProviderKeys()))
 
     private var lmEngine: Engine? = null
     private var lmPath: String? = null

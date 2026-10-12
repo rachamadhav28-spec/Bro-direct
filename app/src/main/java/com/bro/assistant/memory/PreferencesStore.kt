@@ -18,6 +18,25 @@ class PreferencesStore(context: Context) {
     /** Every Gemini key the owner entered (separated by commas, spaces or new lines). */
     fun apiKeyList(): List<String> = apiKey.split(Regex("[,;\\s]+")).map { it.trim() }.filter { it.length >= 20 }.distinct()
 
+    /** Keys for the other free AI services (Groq, NVIDIA, ...). Stored encrypted with the phone's keystore. */
+    fun providerKey(id: String): String {
+        val stored = str("pk_$id", "")
+        if (stored.isBlank()) return ""
+        return com.bro.assistant.security.SecretBox.decrypt(stored) ?: ""
+    }
+
+    fun setProviderKey(id: String, value: String) {
+        val t = value.trim()
+        sp.edit().putString("pk_$id", if (t.isEmpty()) "" else com.bro.assistant.security.SecretBox.encrypt(t)).apply()
+    }
+
+    /** The model name that last worked for this provider. */
+    fun providerModel(id: String): String = str("pm_$id", "")
+    fun setProviderModel(id: String, value: String) { sp.edit().putString("pm_$id", value).apply() }
+
+    fun hasProviderKeys(): Boolean =
+        com.bro.assistant.ai.Provider.entries.any { it != com.bro.assistant.ai.Provider.GEMINI && providerKey(it.id).isNotBlank() }
+
     var githubToken: String
         get() = str("github_token", "")
         set(value) { sp.edit().putString("github_token", value.trim()).apply() }
@@ -37,7 +56,7 @@ class PreferencesStore(context: Context) {
         set(value) { sp.edit().putString("local_model_name", value).apply() }
 
     /** True when BRO has some AI to think with: a Gemini key or an installed offline model. */
-    fun hasBrain(): Boolean = apiKey.isNotBlank() || com.bro.assistant.ai.LocalLlm.isInstalled(appContext)
+    fun hasBrain(): Boolean = apiKey.isNotBlank() || hasProviderKeys() || com.bro.assistant.ai.LocalLlm.isInstalled(appContext)
 
     var model: String
         get() = str("model", "gemini-2.5-flash")

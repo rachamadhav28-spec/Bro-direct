@@ -23,6 +23,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -30,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -60,6 +62,13 @@ fun SettingsScreen(
     var voiceLabel by remember { mutableStateOf(prefs.voiceName.ifBlank { "Default (lower pitch)" }) }
     var speechLang by remember { mutableStateOf(prefs.language) }
     var githubToken by remember { mutableStateOf(prefs.githubToken) }
+    val uriHandler = LocalUriHandler.current
+    val provKeys = remember {
+        mutableStateMapOf<String, String>().apply {
+            com.bro.assistant.ai.Provider.entries.filter { it != com.bro.assistant.ai.Provider.GEMINI }
+                .forEach { put(it.id, prefs.providerKey(it.id)) }
+        }
+    }
     var saved by remember { mutableStateOf(false) }
     val wakeOn = remember(tick) { prefs.wakeEnabled }
 
@@ -93,10 +102,31 @@ fun SettingsScreen(
             "Tip: paste more than one free key, separated by commas. When one key runs out of free usage, BRO switches to the next one by itself.",
             color = Color.Gray, fontSize = 12.sp
         )
+        TextButton(onClick = { uriHandler.openUri(com.bro.assistant.ai.Provider.GEMINI.signup) }) { Text("Get a free Gemini key") }
         OutlinedTextField(
             value = model, onValueChange = { model = it; saved = false },
             label = { Text("Model name") }, singleLine = true, modifier = Modifier.fillMaxWidth()
         )
+
+        Heading("More free AI keys (BRO splits big tasks between them)")
+        Text(
+            "Say \"divide <your big task>\" and BRO splits it, then gives coding to the best coder, quick parts to the fastest, " +
+                "long text to Gemini, and so on. If one key runs out, the next one takes over. " +
+                "Keys stay on this phone, encrypted. Say \"ai status\" to see who does what.",
+            color = Color.Gray, fontSize = 12.sp
+        )
+        com.bro.assistant.ai.Provider.entries.filter { it != com.bro.assistant.ai.Provider.GEMINI }.forEach { p ->
+            Spacer(Modifier.height(6.dp))
+            OutlinedTextField(
+                value = provKeys[p.id] ?: "", onValueChange = { provKeys[p.id] = it; saved = false },
+                label = { Text(p.label + " key") }, singleLine = true,
+                visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth()
+            )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text(p.strong, color = Color.Gray, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                TextButton(onClick = { uriHandler.openUri(p.signup) }) { Text("Get key") }
+            }
+        }
 
         Heading("Offline brain (no internet, no API key)")
         OfflineBrainSection(prefs)
@@ -307,6 +337,7 @@ fun SettingsScreen(
         Spacer(Modifier.height(10.dp))
         Button(onClick = {
             prefs.apiKey = apiKey
+            provKeys.forEach { (id, v) -> prefs.setProviderKey(id, v) }
             prefs.model = model
             prefs.githubToken = githubToken
             prefs.wakePhrases = wakePhrases

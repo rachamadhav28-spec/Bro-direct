@@ -18,26 +18,57 @@ import java.net.URL
 class GeminiClient(private val prefs: PreferencesStore) {
 
     /**
-     * Picks the brain: the offline model when it is installed and chosen (or there is no API key),
-     * otherwise Gemini, with the offline model as backup when there is no internet or Gemini fails.
+     * Picks the brain. Coding jobs (skill = CODE) go to the best free AI for that job; everything else
+     * uses Gemini first. When a service fails or its free quota is used up, the next free AI with a key
+     * takes over, then the offline model.
      */
     suspend fun generate(
         system: String,
         user: String,
         json: Boolean = true,
-        timeoutMs: Int = if (json) 30000 else 90000
+        timeoutMs: Int = if (json) 30000 else 90000,
+        skill: Skill? = null
     ): String {
         if (LocalLlm.willUse(prefs)) return LocalLlm.generate(prefs, system, user, json)
-        try {
-            return generateRemote(system, user, json, timeoutMs)
-        } catch (e: java.io.IOException) {
-            if (LocalLlm.isInstalled(prefs.appContext)) return LocalLlm.generate(prefs, system, user, json)
-            throw e
-        } catch (e: AiException) {
-            if (LocalLlm.isInstalled(prefs.appContext)) return LocalLlm.generate(prefs, system, user, json)
-            throw e
+        val hasGemini = prefs.apiKey.isNotBlank()
+        val hasOthers = prefs.hasProviderKeys()
+        var failure: Exception? = null
+        var routed = false
+        if (hasOthers && (skill != null || !hasGemini)) {
+            routed = true
+            try {
+                return Router.run(prefs, skill ?: Skill.GENERAL, system, user, json, timeoutMs, this).second
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                failure = e
+            }
         }
+        if (hasGemini && !routed) {
+            try {
+                return generateRemote(system, user, json, timeoutMs)
+            } catch (e: java.io.IOException) {
+                failure = e
+            } catch (e: AiException) {
+                failure = e
+            }
+        }
+        if (hasOthers && !routed) {
+            try {
+                return Router.run(prefs, Skill.GENERAL, system, user, json, timeoutMs, this, setOf(Provider.GEMINI)).second
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (failure == null) failure = e
+            }
+        }
+        if (LocalLlm.isInstalled(prefs.appContext)) return LocalLlm.generate(prefs, system, user, json)
+        throw failure ?: AiException(401, "no AI key is set")
     }
+
+    /** Gemini only (used by the router so it can try the other services itself). */
+    suspend fun remoteOnly(system: String, user: String, json: Boolean, timeoutMs: Int): String =
+        generateRemote(system, user, json, timeoutMs)
 
     // With several keys, BRO uses one until Google says its free quota is used up, then moves to the next.
     @Volatile private var keyIndex = 0
