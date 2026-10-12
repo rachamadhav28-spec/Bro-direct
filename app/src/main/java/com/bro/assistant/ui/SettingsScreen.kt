@@ -84,8 +84,12 @@ fun SettingsScreen(
         Heading("AI (needs internet)")
         OutlinedTextField(
             value = apiKey, onValueChange = { apiKey = it; saved = false },
-            label = { Text("Gemini API key") }, singleLine = true,
+            label = { Text("Gemini API key (several keys: separate with commas)") }, singleLine = true,
             visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth()
+        )
+        Text(
+            "Tip: paste more than one free key, separated by commas. When one key runs out of free usage, BRO switches to the next one by itself.",
+            color = Color.Gray, fontSize = 12.sp
         )
         OutlinedTextField(
             value = model, onValueChange = { model = it; saved = false },

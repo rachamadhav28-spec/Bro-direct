@@ -15,6 +15,9 @@ class PreferencesStore(context: Context) {
         get() = str("api_key", "")
         set(value) { sp.edit().putString("api_key", value.trim()).apply() }
 
+    /** Every Gemini key the owner entered (separated by commas, spaces or new lines). */
+    fun apiKeyList(): List<String> = apiKey.split(Regex("[,;\\s]+")).map { it.trim() }.filter { it.length >= 20 }.distinct()
+
     var githubToken: String
         get() = str("github_token", "")
         set(value) { sp.edit().putString("github_token", value.trim()).apply() }

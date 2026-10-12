@@ -39,6 +39,22 @@ class GeminiClient(private val prefs: PreferencesStore) {
         }
     }
 
+    // With several keys, BRO uses one until Google says its free quota is used up, then moves to the next.
+    @Volatile private var keyIndex = 0
+
+    private fun currentKey(): String {
+        val keys = prefs.apiKeyList()
+        return if (keys.isEmpty()) prefs.apiKey else keys[keyIndex % keys.size]
+    }
+
+    /** Switches to the next key. Returns false when there is only one key. */
+    private fun nextKey(): Boolean {
+        val n = prefs.apiKeyList().size
+        if (n < 2) return false
+        keyIndex = (keyIndex + 1) % n
+        return true
+    }
+
     /** Retries when Google says it is overloaded (429, 500, 502, 503, 504). */
     private suspend fun generateRemote(
         system: String,
@@ -49,6 +65,7 @@ class GeminiClient(private val prefs: PreferencesStore) {
         val waits = longArrayOf(2000, 6000, 15000)
         var attempt = 0
         var modelSwitched = false
+        var keysTried = 0
         while (true) {
             try {
                 return generateOnce(system, user, json, timeoutMs)
@@ -58,6 +75,8 @@ class GeminiClient(private val prefs: PreferencesStore) {
                 if (e.code == 400 && !prefs.thinkingUnsupported && e.detail.contains("think", ignoreCase = true)) {
                     prefs.thinkingUnsupported = true; continue
                 }
+                // quota used up on this key: try the next key straight away
+                if (e.code == 429 && keysTried < prefs.apiKeyList().size - 1 && nextKey()) { keysTried++; continue }
                 if (e.code !in listOf(429, 500, 502, 503, 504) || attempt >= waits.size) throw e
                 delay(waits[attempt++])
             }
@@ -71,7 +90,7 @@ class GeminiClient(private val prefs: PreferencesStore) {
                 .openConnection() as HttpURLConnection
             conn.connectTimeout = 15000
             conn.readTimeout = 20000
-            conn.setRequestProperty("x-goog-api-key", prefs.apiKey)
+            conn.setRequestProperty("x-goog-api-key", currentKey())
             val text = try {
                 if (conn.responseCode !in 200..299) return@withContext false
                 conn.inputStream.bufferedReader().readText()
@@ -120,7 +139,7 @@ class GeminiClient(private val prefs: PreferencesStore) {
             conn.readTimeout = timeoutMs
             conn.doOutput = true
             conn.setRequestProperty("Content-Type", "application/json")
-            conn.setRequestProperty("x-goog-api-key", prefs.apiKey)
+            conn.setRequestProperty("x-goog-api-key", currentKey())
 
             val body = JSONObject()
                 .put(
