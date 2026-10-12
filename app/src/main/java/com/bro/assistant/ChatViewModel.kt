@@ -67,17 +67,51 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private var nextId = 0L
     private var confirmDeferred: CompletableDeferred<Boolean>? = null
 
+    // ---------- conversation mode ("Hey BRO" keeps the mic going until you say "that's all") ----------
+
+    @Volatile var convo by mutableStateOf(false)
+        private set
+    private var silentRounds = 0
+    private val endConvoRx = Regex(
+        "^(?:that'?s\\s+all|that\\s+is\\s+all|that'?s\\s+it|thats\\s+it|stop\\s+listening|bye(?:\\s+bro)?|goodbye|good\\s+night|ok(?:ay)?\\s+bye|nothing\\s+else|no\\s+thanks|chalu|inka\\s+emi\\s+ledu)[.!?\\s]*$",
+        RegexOption.IGNORE_CASE
+    )
+    private val talkRx = Regex("^(?:let'?s\\s+talk|talk\\s+to\\s+me|conversation\\s+mode|keep\\s+listening|stay\\s+on)[.!?\\s]*$", RegexOption.IGNORE_CASE)
+
+    fun endConversation() { convo = false; silentRounds = 0 }
+
+    /** Starts the microphone again after BRO finished answering, while conversation mode is on. */
+    private fun resumeConvo() {
+        if (!convo) return
+        viewModelScope.launch {
+            delay(500)
+            if (convo && state == BroState.IDLE && !busy && queue.isEmpty()) startListening()
+        }
+    }
+
     private val stt = SpeechInput(
         app,
         onPartial = { partialText = it },
         onFinal = { text ->
             partialText = ""
-            send(text)
+            silentRounds = 0
+            if (convo && endConvoRx.matches(text.trim())) {
+                convo = false
+                state = BroState.IDLE
+                addMessage(true, text)
+                reply("Okay, boss. Call me whenever you need me.", BroState.IDLE)
+            } else send(text)
         },
         onProblem = { message ->
             partialText = ""
             state = BroState.IDLE
-            if (!quietListen) addMessage(false, message)
+            if (convo) {
+                silentRounds++
+                if (silentRounds >= 3) {
+                    convo = false
+                    addMessage(false, "I'll stay quiet now. Say \"Hey BRO\" when you need me.")
+                } else resumeConvo()
+            } else if (!quietListen) addMessage(false, message)
         }
     )
 
@@ -169,7 +203,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     fun onWake() {
         if (busy) return
-        reply("Yes, I'm listening.", BroState.IDLE) { startListening() }
+        convo = true
+        silentRounds = 0
+        reply("I'm all ears, boss. Say \"that's all\" when you're done.", BroState.IDLE) { startListening() }
     }
 
     // ---------- commands ----------
@@ -210,6 +246,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         currentJob = taskScope.launch {
             try {
                 handle(text, echo)
+                if (!com.bro.assistant.ai.Briefing.trigger.matches(text.trim()))
+                    com.bro.assistant.memory.TaskLog.add(app, text, lastReply ?: "", !appVisible)
                 if (!appVisible && queue.isEmpty()) lastReply?.let { TaskNotifier.notifyDone(app, it.take(150)) }
             } catch (e: CancellationException) {
                 throw e
@@ -277,6 +315,17 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     /** One command through the whole pipeline: direct controls, GitHub, then the planner (and agent). */
     private suspend fun runCommand(text: String, quiet: Boolean): StepOutcome {
+        // conversation mode on request
+        if (talkRx.matches(text.trim())) {
+            convo = true; silentRounds = 0
+            return StepOutcome(true, "I'm all ears, boss. Say \"that's all\" when you're done.", BroState.IDLE)
+        }
+        // memory: remember / forget / "what is my ..." (works offline)
+        com.bro.assistant.ai.MemoryCommands.handle(app, text)?.let { return StepOutcome(true, it, BroState.SUCCESS) }
+        // "good morning": time, alarm, weather, calendar, tasks finished while you were away
+        if (com.bro.assistant.ai.Briefing.trigger.matches(text.trim())) {
+            return StepOutcome(true, com.bro.assistant.ai.Briefing.build(app), BroState.SUCCESS)
+        }
         // recurring jobs ("every hour check ..."): create / list / stop
         com.bro.assistant.watch.WatchCommands.handle(app, text)?.let { return StepOutcome(true, it, BroState.SUCCESS) }
         // direct phone functions (volume, brightness, lock, tiles...): no planner, no AI
@@ -349,12 +398,14 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         state = end
         if (end == BroState.IDLE) {
             then?.invoke()
+            resumeConvo()
             return
         }
         viewModelScope.launch {
             delay(1500)
             if (state == end) state = BroState.IDLE
             then?.invoke()
+            resumeConvo()
         }
     }
 

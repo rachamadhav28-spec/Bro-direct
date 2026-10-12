@@ -16,6 +16,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -161,6 +162,33 @@ fun SettingsScreen(
             speechLang = if (speechLang.startsWith("te")) "en-IN" else "te-IN"
             prefs.language = speechLang
         }) { Text("Switch speech language") }
+
+        Heading("Morning briefing and alerts")
+        var city by remember(tick) { mutableStateOf(prefs.city) }
+        OutlinedTextField(
+            value = city, onValueChange = { city = it; prefs.city = it },
+            label = { Text("Your city (for the weather)") }, singleLine = true, modifier = Modifier.fillMaxWidth()
+        )
+        Text("Say \"good morning\" and BRO tells you the time, your next alarm, the weather, today's calendar and what it finished while you were away.", color = Color.Gray, fontSize = 12.sp)
+        var proactiveOn by remember(tick) { mutableStateOf(prefs.proactiveEnabled) }
+        SwitchRow("Let BRO speak up by itself", proactiveOn) { on ->
+            proactiveOn = on; prefs.proactiveEnabled = on
+            if (on) com.bro.assistant.proactive.Proactive.schedule(ctx) else com.bro.assistant.proactive.Proactive.cancel(ctx)
+        }
+        Text("Low battery warnings, an evening heads-up about tomorrow's exams or events, and a warning an hour before an event. Checked about every 15 minutes (Android may delay it). Spoken aloud only while the phone is awake.", color = Color.Gray, fontSize = 12.sp)
+        PermRow("Calendar (for exam and event alerts)", com.bro.assistant.proactive.CalendarReader.allowed(ctx)) { onRequest(Manifest.permission.READ_CALENDAR) }
+
+        Heading("BRO's memory")
+        var facts by remember(tick) { mutableStateOf(com.bro.assistant.memory.MemoryStore.all(ctx)) }
+        Text("Say \"remember that my mom's number is ...\", \"remember my timetable: ...\", or \"what do you remember\". BRO never stores passwords, PINs or OTPs.", color = Color.Gray, fontSize = 12.sp)
+        if (facts.isEmpty()) Text("Nothing saved yet.", color = Color.LightGray, fontSize = 13.sp)
+        facts.forEach { f ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text(f.text, color = Color.White, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                TextButton(onClick = { com.bro.assistant.memory.MemoryStore.remove(ctx, f.id); facts = com.bro.assistant.memory.MemoryStore.all(ctx) }) { Text("Delete") }
+            }
+        }
+        if (facts.isNotEmpty()) OutlinedButton(onClick = { com.bro.assistant.memory.MemoryStore.clear(ctx); facts = emptyList() }) { Text("Forget everything") }
 
         Heading("Floating circle")
         var bubbleOn by remember(tick) { mutableStateOf(prefs.bubbleEnabled && android.provider.Settings.canDrawOverlays(ctx)) }

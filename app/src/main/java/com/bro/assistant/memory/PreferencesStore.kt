@@ -92,6 +92,16 @@ class PreferencesStore(context: Context) {
         get() = sp.getBoolean("bubble_enabled", false)
         set(value) { sp.edit().putBoolean("bubble_enabled", value).apply() }
 
+    /** City used for the weather in the morning briefing. */
+    var city: String
+        get() = str("city", "")
+        set(value) { sp.edit().putString("city", value.trim()).apply() }
+
+    /** BRO may speak up by itself (battery, calendar events). */
+    var proactiveEnabled: Boolean
+        get() = sp.getBoolean("proactive_enabled", false)
+        set(value) { sp.edit().putBoolean("proactive_enabled", value).apply() }
+
     var wakeEnabled: Boolean
         get() = sp.getBoolean("wake_enabled", false)
         set(value) { sp.edit().putBoolean("wake_enabled", value).apply() }

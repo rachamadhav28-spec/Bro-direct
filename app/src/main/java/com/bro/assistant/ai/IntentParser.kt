@@ -17,6 +17,7 @@ class IntentParser(private val memory: SessionMemory, private val prefs: Prefere
     suspend fun understand(userText: String): AiPlan {
         val local = com.bro.assistant.ai.LocalLlm.willUse(prefs) // short prompt = much faster on the phone
         val context = buildString {
+            append(com.bro.assistant.memory.MemoryStore.promptText(prefs.appContext, if (local) 400 else 2000))
             append("Context:\n")
             append("last_app=").append(memory.lastApp ?: "none").append('\n')
             append("last_contact=").append(memory.lastContact ?: "none").append('\n')
@@ -30,6 +31,7 @@ class IntentParser(private val memory: SessionMemory, private val prefs: Prefere
     /** Free-form answer (code, explanations). Not JSON. */
     suspend fun answerFreely(userText: String): String {
         val context = buildString {
+            append(com.bro.assistant.memory.MemoryStore.promptText(prefs.appContext, 2000))
             memory.lastCode?.let { append("Code you wrote earlier (edit this when the user asks for changes or fixes):\n```\n").append(it).append("\n```\n\n") }
             append("Recent conversation:\n").append(memory.historyText()).append("\n\nUser says: ").append(userText)
         }

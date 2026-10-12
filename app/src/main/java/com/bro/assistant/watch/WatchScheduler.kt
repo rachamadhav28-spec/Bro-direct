@@ -39,6 +39,7 @@ class WatchReceiver : BroadcastReceiver() {
             WatchScheduler.ACTION_RUN -> intent.getStringExtra("id")?.let { WatchRunner.run(context.applicationContext, it) }
             Intent.ACTION_BOOT_COMPLETED -> {
                 WatchScheduler.rescheduleAll(context.applicationContext)
+                try { if (com.bro.assistant.memory.PreferencesStore(context.applicationContext).proactiveEnabled) com.bro.assistant.proactive.Proactive.schedule(context.applicationContext) } catch (_: Exception) {}
                 try { if (com.bro.assistant.memory.PreferencesStore(context.applicationContext).bubbleEnabled) com.bro.assistant.BubbleService.start(context.applicationContext) } catch (_: Exception) {}
             }
         }

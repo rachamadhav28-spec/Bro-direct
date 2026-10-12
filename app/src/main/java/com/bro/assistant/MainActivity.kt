@@ -262,6 +262,7 @@ class MainActivity : FragmentActivity() {
 
     override fun onStop() {
         vm.appVisible = false
+        if (!BubbleBus.listening) vm.endConversation()   // no hidden listening: conversation mode only runs while BRO is on screen
         leftAt = android.os.SystemClock.elapsedRealtime()
         vm.freeBrainMemory()
         if (vm.prefs.wakeEnabled) BroListenerService.setPaused(false)
