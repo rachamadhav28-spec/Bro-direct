@@ -59,7 +59,9 @@ object Reminders {
     fun fire(c: Context, id: Long, missed: Boolean = false) {
         val r = all(c).firstOrNull { it.id == id } ?: return
         save(c, all(c).filter { it.id != id })
-        Proactive.alert(c, "Reminder", (if (missed) "Boss, you missed this reminder: " else "Boss, reminder: ") + r.text)
+        val line = (if (missed) "Boss, you missed this reminder: " else "Boss, reminder: ") + r.text
+        Proactive.alert(c, "Reminder", line)
+        if (!missed) CallMe.placeInBackground(c, line)   // also rings your phone when "BRO calls me" is on
     }
 
     // ---------- understanding the sentence ----------

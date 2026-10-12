@@ -7,6 +7,7 @@ import com.bro.assistant.memory.PreferencesStore
 object Features {
     suspend fun handle(c: Context, prefs: PreferencesStore, text: String, confirm: suspend (String) -> Boolean): String? {
         Study.handle(c, prefs, text)?.let { return it }          // a quiz in progress takes every answer
+        CallMe.handle(c, prefs, text)?.let { return it }
         DriveMode.handle(c, text)?.let { return it }
         FocusGuard.handle(c, text)?.let { return it }
         Reminders.handle(c, text)?.let { return it }

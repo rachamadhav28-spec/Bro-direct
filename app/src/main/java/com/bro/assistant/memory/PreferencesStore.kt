@@ -112,6 +112,27 @@ class PreferencesStore(context: Context) {
         get() = str("drive_bt", "")
         set(value) { sp.edit().putString("drive_bt", value.trim()).apply() }
 
+    // ---- "BRO calls me" (your own Twilio account) ----
+    var twilioSid: String
+        get() = str("twilio_sid", "")
+        set(value) { sp.edit().putString("twilio_sid", value.trim()).apply() }
+    /** Stored encrypted with the phone's keystore (see SecretBox). */
+    var twilioToken: String
+        get() = str("twilio_token", "")
+        set(value) { sp.edit().putString("twilio_token", value).apply() }
+    var twilioFrom: String
+        get() = str("twilio_from", "")
+        set(value) { sp.edit().putString("twilio_from", value.trim()).apply() }
+    var myNumber: String
+        get() = str("my_number", "")
+        set(value) { sp.edit().putString("my_number", value.trim()).apply() }
+    var callVoice: String
+        get() = str("call_voice", "")
+        set(value) { sp.edit().putString("call_voice", value.trim()).apply() }
+    var callForReminders: Boolean
+        get() = sp.getBoolean("call_for_reminders", false)
+        set(value) { sp.edit().putBoolean("call_for_reminders", value).apply() }
+
     var wakeEnabled: Boolean
         get() = sp.getBoolean("wake_enabled", false)
         set(value) { sp.edit().putBoolean("wake_enabled", value).apply() }

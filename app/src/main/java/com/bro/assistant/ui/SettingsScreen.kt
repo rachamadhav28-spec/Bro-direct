@@ -16,6 +16,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
+import kotlinx.coroutines.launch
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
@@ -227,6 +228,46 @@ fun SettingsScreen(
         )
         if (Build.VERSION.SDK_INT >= 31) PermRow("Bluetooth (to notice your car)", com.bro.assistant.PermissionManager.has(ctx, Manifest.permission.BLUETOOTH_CONNECT)) { onRequest(Manifest.permission.BLUETOOTH_CONNECT) }
         Text("Or just say \"drive mode\". Drive mode reads messages aloud even with the screen off and keeps the microphone on (needs the floating circle permission).", color = Color.Gray, fontSize = 12.sp)
+
+        Heading("BRO calls me (real phone call)")
+        val callScope = androidx.compose.runtime.rememberCoroutineScope()
+        var twSid by remember { mutableStateOf(prefs.twilioSid) }
+        var twTok by remember { mutableStateOf("") }
+        var twFrom by remember { mutableStateOf(prefs.twilioFrom) }
+        var myNum by remember { mutableStateOf(prefs.myNumber) }
+        var callVoice by remember { mutableStateOf(prefs.callVoice) }
+        var callRem by remember { mutableStateOf(prefs.callForReminders) }
+        var callMsg by remember { mutableStateOf("") }
+        Text(
+            "BRO can ring your number and speak, for reminders or when you say \"call me\". It uses YOUR Twilio account (twilio.com): " +
+                "paste its Account SID, Auth token and the Twilio phone number below. It is a one-way call (you hear BRO, BRO can't hear you). " +
+                "Twilio charges per call after the free trial credit, and a trial account can only call numbers you verified there.",
+            color = Color.Gray, fontSize = 12.sp
+        )
+        OutlinedTextField(value = twSid, onValueChange = { twSid = it }, label = { Text("Twilio Account SID") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(
+            value = twTok, onValueChange = { twTok = it },
+            label = { Text(if (prefs.twilioToken.isNotBlank()) "Auth token (saved, type to replace)" else "Twilio Auth token") },
+            singleLine = true, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth()
+        )
+        OutlinedTextField(value = twFrom, onValueChange = { twFrom = it }, label = { Text("Twilio phone number (+1...)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(value = myNum, onValueChange = { myNum = it }, label = { Text("Your number to call") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(value = callVoice, onValueChange = { callVoice = it }, label = { Text("Voice name (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        SwitchRow("Also call me when a reminder goes off", callRem) { callRem = it; prefs.callForReminders = it }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = {
+                prefs.twilioSid = twSid; prefs.twilioFrom = twFrom; prefs.myNumber = myNum; prefs.callVoice = callVoice
+                if (twTok.isNotBlank()) { prefs.twilioToken = com.bro.assistant.security.SecretBox.encrypt(twTok.trim()); twTok = "" }
+                callMsg = "Saved."
+            }) { Text("Save call settings") }
+            OutlinedButton(onClick = {
+                callMsg = "Calling..."
+                callScope.launch {
+                    callMsg = com.bro.assistant.features.CallMe.place(ctx, "Hello boss, this is BRO. Your call setup works.") ?: "Call placed. Your phone should ring shortly."
+                }
+            }) { Text("Test call") }
+        }
+        if (callMsg.isNotEmpty()) Text(callMsg, color = Color.LightGray, fontSize = 12.sp)
 
         Heading("Floating circle")
         var bubbleOn by remember(tick) { mutableStateOf(prefs.bubbleEnabled && android.provider.Settings.canDrawOverlays(ctx)) }
