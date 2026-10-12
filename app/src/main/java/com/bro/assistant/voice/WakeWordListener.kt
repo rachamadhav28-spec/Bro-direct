@@ -79,17 +79,20 @@ class WakeWordListener(
 
             override fun onResults(results: Bundle?) {
                 val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
-                if (!handle(text)) restart(300)
+                if (!handle(text)) restart(0)
             }
 
             override fun onError(error: Int) {
-                val wait = if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY) 2000L else 700L
+                val wait = if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY) 600L else 0L
                 restart(wait)
             }
         })
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 6000L)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 6000L)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 60000L)
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
         }
         r.startListening(intent)

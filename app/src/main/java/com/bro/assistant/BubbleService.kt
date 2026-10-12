@@ -44,28 +44,17 @@ object BubbleBus {
 class BubbleService : Service() {
 
     private val main = Handler(Looper.getMainLooper())
-    private var phaseListen = false
-    private var phaseEnd = 0L
-    private var finishedAt = 0L
-
+    /** Keeps the microphone on: whenever BRO is free and not listening, listening starts again straight away. */
     private val loop = object : Runnable {
         override fun run() {
             if (!BubbleBus.listening) return
             val vm = BubbleBus.vm
             if (vm == null) { stopListeningMode(); return }
-            val now = android.os.SystemClock.elapsedRealtime()
-            if (phaseListen) {
-                if (vm.state != BroState.LISTENING) { phaseListen = false; phaseEnd = now + REST_MS; finishedAt = 0 }   // ended early or got a result
-                else if (now >= phaseEnd) { vm.finishListening(); phaseListen = false; phaseEnd = now + REST_MS; finishedAt = now }
-            } else {
-                if (finishedAt > 0 && vm.state == BroState.LISTENING && now - finishedAt > 5000) { vm.stopListening(); finishedAt = 0 }
-                if (now >= phaseEnd && vm.state == BroState.IDLE && !vm.isBusy) {
-                    vm.quietListen = true
-                    vm.startListening()
-                    phaseListen = true; phaseEnd = now + LISTEN_MS
-                }
+            if (vm.state == BroState.IDLE && !vm.isBusy) {
+                vm.quietListen = true
+                vm.startListening()
             }
-            main.postDelayed(this, 200)
+            main.postDelayed(this, 100)
         }
     }
 
@@ -88,7 +77,6 @@ class BubbleService : Service() {
         } catch (e: Exception) { ErrorHandler.log("BubbleService", "microphone type refused", e) }
         BroListenerService.setPaused(true)   // the wake-phrase listener would fight for the microphone
         BubbleBus.listening = true
-        phaseListen = false; phaseEnd = 0; finishedAt = 0
         view?.invalidate()
         main.post(loop)
     }
@@ -243,8 +231,6 @@ class BubbleService : Service() {
 
     companion object {
         const val EXTRA_BUBBLE_LISTEN = "bro_bubble_listen"
-        private const val LISTEN_MS = 6000L   // microphone on
-        private const val REST_MS = 1000L     // microphone off
 
         @Volatile private var instance: BubbleService? = null
 
