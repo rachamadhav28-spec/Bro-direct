@@ -6,6 +6,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.clickable
 import android.os.Build
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -111,7 +113,7 @@ fun SettingsScreen(
             .verticalScroll(rememberScrollState())
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text("Settings", color = BroColors.Accent, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Text("Settings", color = BroColors.TextPrimary, fontSize = 24.sp, fontWeight = FontWeight.Bold)
             OutlinedButton(onClick = onBack) { Text("Back") }
         }
         Spacer(Modifier.height(8.dp))
@@ -126,7 +128,7 @@ fun SettingsScreen(
             prefs.speakReplies = speakReplies
             saved = true
         }) { Text(if (saved) "Saved" else "Save") }
-        Text("Tap a heading to open it. Tap Save after changing keys or switches.", color = Color.Gray, fontSize = 12.sp)
+        Text("Tap a section to open it. Tap Save after changing keys or switches.", color = BroColors.TextSecondary, fontSize = 13.sp)
 
         SectionHeader("AI (needs internet)", openSection == "AI (needs internet)") { openSection = if (openSection == "AI (needs internet)") "" else "AI (needs internet)" }
         if (openSection == "AI (needs internet)") {
@@ -489,20 +491,22 @@ private fun Heading(text: String) {
 
 @Composable
 private fun SectionHeader(text: String, open: Boolean, onClick: () -> Unit) {
-    Spacer(Modifier.height(10.dp))
+    Spacer(Modifier.height(12.dp))
     Row(
         Modifier.fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(Color(0x3308162B))
-            .clickable { onClick() }
-            .padding(horizontal = 12.dp, vertical = 12.dp),
+            .heightIn(min = 56.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(if (open) Color(0xFF14233A) else BroColors.Surface2)
+            .border(1.dp, if (open) BroColors.Accent.copy(alpha = 0.5f) else BroColors.Outline, RoundedCornerShape(16.dp))
+            .clickable(onClickLabel = if (open) "Close $text" else "Open $text") { onClick() }
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(text, color = BroColors.Accent, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-        Text(if (open) "\u25B2" else "\u25BC", color = BroColors.Accent, fontSize = 14.sp)
+        Text(text, color = BroColors.TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+        Text(if (open) "\u2303" else "\u2304", color = BroColors.Accent, fontSize = 18.sp)
     }
-    Spacer(Modifier.height(4.dp))
+    Spacer(Modifier.height(6.dp))
 }
 
 @Composable

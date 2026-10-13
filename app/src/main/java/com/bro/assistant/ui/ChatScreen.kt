@@ -28,7 +28,14 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -76,50 +83,38 @@ fun ChatScreen(
         }
     }
 
-    FuturisticBackground {
+    CalmBackground {
     Column(
         Modifier
             .fillMaxSize()
             .systemBarsPadding()
             .imePadding()
-            .padding(horizontal = 12.dp)
     ) {
+        // ── Top bar: identity on the left, state + actions on the right ──
         Row(
-            Modifier.fillMaxWidth(),
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(verticalAlignment = Alignment.Bottom) {
-                val glow = breathing()
+            Column {
                 Text(
-                    "BRO", fontSize = 26.sp, fontWeight = FontWeight.Black, letterSpacing = 4.sp,
-                    style = androidx.compose.ui.text.TextStyle(
-                        brush = neonBrush(),
-                        shadow = androidx.compose.ui.graphics.Shadow(NeonCyan.copy(alpha = 0.4f + 0.5f * glow), blurRadius = 14f + 14f * glow)
-                    )
+                    "BRO", fontSize = 24.sp, fontWeight = FontWeight.Black, letterSpacing = 3.sp,
+                    style = androidx.compose.ui.text.TextStyle(brush = neonBrush())
                 )
-                Text(
-                    "  build " + com.bro.assistant.BuildConfig.BUILD_NUMBER,
-                    color = Color.Gray, fontSize = 11.sp, modifier = Modifier.padding(bottom = 3.dp)
-                )
+                Text("build " + com.bro.assistant.BuildConfig.BUILD_NUMBER, color = BroColors.TextSecondary, fontSize = 11.sp)
             }
-            Row {
-                TextButton(onClick = { vm.newConversation() }) { Text("New") }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                StatusChip(vm.state)
+                IconButton(onClick = { vm.newConversation() }, modifier = Modifier.semantics { contentDescription = "New chat" }) {
+                    Text("+", color = BroColors.TextPrimary, fontSize = 26.sp)
+                }
                 Box {
-                    TextButton(onClick = { menuOpen = true }) { Text("Menu") }
-                    DropdownMenu(
-                        expanded = menuOpen,
-                        onDismissRequest = { menuOpen = false },
-                        containerColor = BroColors.Background
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("History", color = BroColors.Accent) },
-                            onClick = { menuOpen = false; onOpenHistory() }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Settings", color = BroColors.Accent) },
-                            onClick = { menuOpen = false; onOpenSettings() }
-                        )
+                    IconButton(onClick = { menuOpen = true }, modifier = Modifier.semantics { contentDescription = "Menu" }) {
+                        Text("\u22EE", color = BroColors.TextPrimary, fontSize = 22.sp)
+                    }
+                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }, containerColor = BroColors.Panel) {
+                        DropdownMenuItem(text = { Text("History", color = BroColors.TextPrimary) }, onClick = { menuOpen = false; onOpenHistory() })
+                        DropdownMenuItem(text = { Text("Settings", color = BroColors.TextPrimary) }, onClick = { menuOpen = false; onOpenSettings() })
                     }
                 }
             }
@@ -127,63 +122,84 @@ fun ChatScreen(
 
         // The orb only appears while you are talking to BRO (mic on).
         if (vm.state == BroState.LISTENING) {
-            Box(Modifier.fillMaxWidth().height(190.dp), contentAlignment = Alignment.Center) {
-                BroOrb(vm.state, Modifier.size(180.dp))
+            Box(Modifier.fillMaxWidth().height(170.dp), contentAlignment = Alignment.Center) {
+                BroOrb(vm.state, Modifier.size(160.dp))
             }
             Text(
                 statusLabel(vm.state, vm.partialText),
-                color = Color.LightGray,
-                fontSize = 14.sp,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
+                color = BroColors.TextSecondary, fontSize = 15.sp, textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)
             )
         }
 
-        TaskProgressCard(vm.steps)
-        Spacer(Modifier.height(6.dp))
+        Box(Modifier.padding(horizontal = 16.dp)) { TaskProgressCard(vm.steps) }
 
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.weight(1f).fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            items(vm.messages, key = { it.id }) { message -> Bubble(message) }
-            if (thinking) item(key = "dino") { DinoThinking(if (vm.state == BroState.EXECUTING) "Working" else "Thinking") }
+        // ── Conversation, or a welcome with starters when it is empty ──
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            if (vm.messages.isEmpty() && !thinking && vm.state != BroState.LISTENING) {
+                Column(
+                    Modifier.fillMaxSize().padding(horizontal = 20.dp),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Box(
+                        Modifier.size(72.dp).clip(CircleShape)
+                            .background(Brush.linearGradient(listOf(NeonCyan.copy(alpha = 0.9f), NeonViolet.copy(alpha = 0.9f))))
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Text("Hi, I'm BRO", color = BroColors.TextPrimary, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(4.dp))
+                    Text("Ask me anything, or tell me what to do on your phone. English, Telugu or Tenglish.", color = BroColors.TextSecondary, fontSize = 15.sp, textAlign = TextAlign.Center)
+                    Spacer(Modifier.height(24.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        StarterCard("Write code", "A program, with a PDF copy") { vm.send("write a python program for a calculator") }
+                        StarterCard("Quiz me", "Practice a subject, I remember your weak points") { vm.send("quiz me on DBMS") }
+                        StarterCard("Study by yourself", "BRO learns in the background until you stop it") { vm.send("start studying") }
+                        StarterCard("My GitHub repos", "See what is in your account") { vm.send("list my repos") }
+                    }
+                }
+            } else {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(vm.messages, key = { it.id }) { message -> Bubble(message) }
+                    if (thinking) item(key = "dino") { DinoThinking(if (vm.state == BroState.EXECUTING) "Working" else "Thinking") }
+                }
+            }
         }
 
+        // ── Input: one pill; the right button is Mic when empty, Send when typing, Stop while listening ──
         Row(
-            Modifier.fillMaxWidth().padding(vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            OutlinedTextField(
+            TextField(
                 value = input,
                 onValueChange = { input = it },
-                modifier = Modifier.weight(1f),
-                placeholder = { Text("Type") },
-                singleLine = true,
-                shape = RoundedCornerShape(14.dp),
-                colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = NeonCyan,
-                    unfocusedBorderColor = NeonCyan.copy(alpha = 0.35f),
+                modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                placeholder = { Text("Message BRO", color = BroColors.TextSecondary) },
+                maxLines = 4,
+                shape = RoundedCornerShape(26.dp),
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = BroColors.Panel,
+                    unfocusedContainerColor = BroColors.Panel,
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent,
                     cursorColor = NeonCyan,
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White,
-                    focusedPlaceholderColor = Color.Gray,
-                    unfocusedPlaceholderColor = Color.Gray,
-                    focusedContainerColor = Color(0x6608162B),
-                    unfocusedContainerColor = Color(0x4D08162B)
+                    focusedTextColor = BroColors.TextPrimary,
+                    unfocusedTextColor = BroColors.TextPrimary
                 ),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                 keyboardActions = KeyboardActions(onSend = { submit() })
             )
-            Button(
-                onClick = onMic,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (vm.state == BroState.LISTENING) BroColors.Listening else BroColors.Accent
-                )
-            ) { Text(if (vm.state == BroState.LISTENING) "Stop" else "Mic") }
-            Button(onClick = { submit() }) { Text("Send") }
+            when {
+                vm.state == BroState.LISTENING -> RoundAction(RoundIcon.STOP, BroColors.Error, "Stop listening", onMic)
+                input.isNotBlank() -> RoundAction(RoundIcon.SEND, BroColors.Accent, "Send message") { submit() }
+                else -> RoundAction(RoundIcon.MIC, BroColors.Accent, "Talk to BRO", onMic)
+            }
         }
     }
     }
@@ -208,27 +224,18 @@ fun ChatScreen(
 @Composable
 private fun Bubble(message: ChatMessage) {
     val appear = remember { androidx.compose.animation.core.Animatable(0f) }
-    LaunchedEffect(Unit) { appear.animateTo(1f, androidx.compose.animation.core.tween(380)) }
-    val accent = if (message.fromUser) NeonViolet else NeonCyan
-    val shape = RoundedCornerShape(16.dp)
+    LaunchedEffect(Unit) { appear.animateTo(1f, androidx.compose.animation.core.tween(220)) }
+    val shape = if (message.fromUser) RoundedCornerShape(18.dp, 18.dp, 4.dp, 18.dp) else RoundedCornerShape(18.dp, 18.dp, 18.dp, 4.dp)
     Row(
-        Modifier
-            .fillMaxWidth()
-            .graphicsLayer {
-                alpha = appear.value
-                translationY = (1f - appear.value) * 28f
-            },
+        Modifier.fillMaxWidth().graphicsLayer { alpha = appear.value; translationY = (1f - appear.value) * 12f },
         horizontalArrangement = if (message.fromUser) Arrangement.End else Arrangement.Start
     ) {
         Box(
             Modifier
-                .widthIn(max = 290.dp)
-                .background(
-                    Brush.linearGradient(listOf(accent.copy(alpha = 0.20f), Color(0xCC0B1426))),
-                    shape
-                )
-                .border(1.dp, Brush.linearGradient(listOf(accent.copy(alpha = 0.9f), accent.copy(alpha = 0.15f))), shape)
-                .padding(horizontal = 12.dp, vertical = 8.dp)
+                .widthIn(max = 320.dp)
+                .background(if (message.fromUser) BroColors.UserBubble else BroColors.BroBubble, shape)
+                .border(1.dp, if (message.fromUser) NeonCyan.copy(alpha = 0.25f) else BroColors.Outline, shape)
+                .padding(horizontal = 14.dp, vertical = 10.dp)
         ) {
             MessageBody(message.text)
         }
