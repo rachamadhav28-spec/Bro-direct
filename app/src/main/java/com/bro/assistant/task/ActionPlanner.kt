@@ -82,6 +82,10 @@ class ActionPlanner(
                 PlanResult(error = ErrorHandler.friendly(e))
             }
         }
+        if (looksLikeCode(text) && !com.bro.assistant.learn.AnswerCache.online(context.applicationContext) && !com.bro.assistant.ai.LocalLlm.willUse(prefs)) {
+            com.bro.assistant.learn.AnswerCache.find(context.applicationContext, text, 0.6)?.let { return PlanResult(reply = it + "\n\n(Offline: from my memory)") }
+            com.bro.assistant.learn.AnswerCache.fromNotes(context.applicationContext, text)?.let { return PlanResult(reply = it) }
+        }
         if (looksLikeCode(text)) {
             return try {
                 val answer = if (codeJob) {
@@ -89,6 +93,7 @@ class ActionPlanner(
                     com.bro.assistant.ai.CodeAgent.solve(context.applicationContext, gemini, text, notes)
                 } else ai.answerFreely(text)
                 SessionMemory.extractLastCode(answer)?.let { memory.lastCode = it }
+                if (!codeJob) com.bro.assistant.learn.AnswerCache.put(context.applicationContext, text, answer)
                 PlanResult(reply = withPdf(text, answer))
             } catch (e: CancellationException) {
                 throw e
@@ -97,8 +102,19 @@ class ActionPlanner(
                 PlanResult(error = ErrorHandler.friendly(e))
             }
         }
+        // instant replies: a very close match is answered from memory; with no internet any decent match is
+        run {
+            val app = context.applicationContext
+            val offline = !com.bro.assistant.learn.AnswerCache.online(app)
+            val cached = com.bro.assistant.learn.AnswerCache.find(app, text, if (offline) 0.6 else 0.92)
+            if (cached != null && (offline || !looksLikeCode(text))) return PlanResult(reply = cached + if (offline) "\n\n(Offline: from my memory)" else "")
+            if (offline && !com.bro.assistant.ai.LocalLlm.willUse(prefs)) {
+                com.bro.assistant.learn.AnswerCache.fromNotes(app, text)?.let { return PlanResult(reply = it) }
+            }
+        }
         return try {
             val result = ai.understand(text)
+            if (result.actions.isEmpty() && result.reply.isNotBlank()) com.bro.assistant.learn.AnswerCache.put(context.applicationContext, text, result.reply)
             validated(result.reply.ifBlank { null }, result.actions)
         } catch (e: CancellationException) {
             throw e

@@ -29,7 +29,7 @@ object LearnCommands {
             StudyService.start(c)
             return "Okay, I'm studying non-stop in the background. A notification has a Stop button, or say \"stop studying\". It uses internet and battery."
         }
-        if (forgetRx.matches(t)) { LearnStore.clear(c); return "Done. I forgot all my study notes." }
+        if (forgetRx.matches(t)) { LearnStore.clear(c); AnswerCache.clear(c); return "Done. I forgot all my study notes." }
         if (showRx.matches(t)) {
             val notes = LearnStore.all(c)
             if (notes.isEmpty()) return "I haven't studied anything yet. Say \"learn coding\" and I'll start. I also study by myself at night when the phone is idle."
