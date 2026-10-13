@@ -143,7 +143,7 @@ class AppBuilder(private val prefs: PreferencesStore, private val gh: GitHubClie
     }
 
     companion object {
-        private const val RULES = """
+        private val RULES = """
             Target: Android, Kotlin 2.0, Jetpack Compose with Material3, compileSdk 35, minSdk 26.
             Rules (the code must compile on the first try):
             - Every file path must be app/src/main/java/com/bro/app/<Name>.kt and start with: package com.bro.app
