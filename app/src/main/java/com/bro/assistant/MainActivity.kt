@@ -19,6 +19,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.delay
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -87,6 +88,9 @@ class MainActivity : FragmentActivity() {
     }
 
     // first-run Gmail sign-in, and lock recovery (fingerprint or emailed code)
+    // BRO calls you: "ring" while the call screen waits for you, "talk" after you answered
+    private var callMode by mutableStateOf<String?>(null)
+    private var callText by mutableStateOf("")
     private var needLogin by mutableStateOf(false)
     private var recovery by mutableStateOf(false)
     private var mailSetup by mutableStateOf(false)
@@ -186,6 +190,27 @@ class MainActivity : FragmentActivity() {
                             onBiometric = biometricOffer { locked = false },
                             onVoice = voiceOffer { locked = false },
                             onForgot = { recovery = true }
+                        )
+                    } else if (callMode != null) {
+                        // the call ends by itself when the conversation ends (you said "that's all", or it was quiet)
+                        LaunchedEffect(vm.convo, callMode) {
+                            if (callMode == "talk" && !vm.convo) { delay(400); if (!vm.convo) callMode = null }
+                        }
+                        com.bro.assistant.ui.BroCallScreen(
+                            vm = vm,
+                            talking = callMode == "talk",
+                            text = callText,
+                            onAnswer = {
+                                com.bro.assistant.features.BroCall.stopRinging(this@MainActivity)
+                                ensurePermission(Manifest.permission.RECORD_AUDIO, reasonFor(Manifest.permission.RECORD_AUDIO)) {
+                                    callMode = "talk"
+                                    vm.startCall(callText)
+                                }
+                            },
+                            onHangUp = {
+                                com.bro.assistant.features.BroCall.stopRinging(this@MainActivity)
+                                vm.hangUp(); callMode = null
+                            }
                         )
                     } else if (lockFlow != null) {
                         BackHandler { lockFlow = null }
@@ -297,6 +322,14 @@ class MainActivity : FragmentActivity() {
 
     private fun handleWake(i: Intent?) {
         BubbleBus.vm = vm
+        if (i != null && i.getBooleanExtra(com.bro.assistant.features.BroCall.EXTRA_CALL, false)) {
+            i.removeExtra(com.bro.assistant.features.BroCall.EXTRA_CALL)
+            callText = i.getStringExtra(com.bro.assistant.features.BroCall.EXTRA_TEXT).orEmpty().ifBlank { "Hello boss, BRO here." }
+            callMode = "ring"
+            try {
+                if (Build.VERSION.SDK_INT >= 27) { setShowWhenLocked(true); setTurnScreenOn(true) }
+            } catch (_: Exception) {}
+        }
         if (i != null && i.getBooleanExtra(BubbleService.EXTRA_BUBBLE_LISTEN, false)) {
             i.removeExtra(BubbleService.EXTRA_BUBBLE_LISTEN)
             BubbleService.beginListening()

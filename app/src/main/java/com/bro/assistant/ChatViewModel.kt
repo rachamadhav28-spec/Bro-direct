@@ -78,6 +78,23 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     )
     private val talkRx = Regex("^(?:let'?s\\s+talk|talk\\s+to\\s+me|conversation\\s+mode|keep\\s+listening|stay\\s+on)[.!?\\s]*$", RegexOption.IGNORE_CASE)
 
+    /** BRO answers your call: it says [opening], then keeps listening until you say "that's all" or hang up. */
+    fun startCall(opening: String) {
+        if (busy) return
+        convo = true
+        silentRounds = 0
+        reply(opening, BroState.IDLE) { startListening() }
+    }
+
+    fun hangUp() {
+        convo = false
+        silentRounds = 0
+        tts.stop()
+        stt.stop()
+        partialText = ""
+        if (state == BroState.LISTENING || state == BroState.SPEAKING) state = BroState.IDLE
+    }
+
     fun endConversation() { convo = false; silentRounds = 0 }
 
     /** Starts the microphone again after BRO finished answering, while conversation mode is on. */

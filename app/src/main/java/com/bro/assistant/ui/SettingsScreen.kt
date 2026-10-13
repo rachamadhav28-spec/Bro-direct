@@ -283,6 +283,17 @@ fun SettingsScreen(
         OutlinedTextField(value = twFrom, onValueChange = { twFrom = it }, label = { Text("Twilio phone number (+1...)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(value = myNum, onValueChange = { myNum = it }, label = { Text("Your number to call") }, singleLine = true, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(value = callVoice, onValueChange = { callVoice = it }, label = { Text("Voice name (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        var ringRem by remember { mutableStateOf(prefs.reminderRings) }
+        SwitchRow("Reminders ring like a BRO call (answer and talk, free)", ringRem) { ringRem = it; prefs.reminderRings = it }
+        if (!com.bro.assistant.features.BroCall.canFullScreen(ctx)) {
+            Text("Android is blocking full-screen calls. Allow it so the BRO call screen can appear over the lock screen.", color = Color.Gray, fontSize = 12.sp)
+            OutlinedButton(onClick = {
+                try {
+                    ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, android.net.Uri.parse("package:" + ctx.packageName)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+                } catch (_: Exception) { com.bro.assistant.PermissionManager.openAppSettings(ctx) }
+            }) { Text("Allow full-screen calls") }
+        }
+        Text("Say \"call me\" (without Twilio) or \"call me here\" and BRO rings inside the app. Answer it and BRO listens to you.", color = Color.Gray, fontSize = 12.sp)
         SwitchRow("Also call me when a reminder goes off", callRem) { callRem = it; prefs.callForReminders = it }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = {

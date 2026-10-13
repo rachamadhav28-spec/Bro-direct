@@ -19,6 +19,7 @@ import java.net.URLEncoder
 object CallMe {
     private val I = RegexOption.IGNORE_CASE
     private val callRx = Regex("^(?:please\\s+)?(?:call\\s+me|give\\s+me\\s+a\\s+call|ring\\s+me)(?:\\s+(?:and\\s+)?(?:say|tell(?:\\s+me)?|read)\\s+(.{1,400}))?[.!?\\s]*$", I)
+    private val appRx = Regex("^(?:please\\s+)?(?:call\\s+me\\s+(?:in\\s+(?:the\\s+)?app|here)|ring\\s+me\\s+here|(?:bro\\s+)?(?:talk|speak)\\s+to\\s+me\\s+(?:on\\s+a\\s+call|in\\s+a\\s+call)|bro\\s+call(?:\\s+me)?)[.!?\\s]*$", I)
     private val testRx = Regex("^(?:test\\s+(?:the\\s+)?call|call\\s+test)[.!?\\s]*$", I)
 
     fun configured(p: PreferencesStore) =
@@ -71,16 +72,25 @@ object CallMe {
     fun placeInBackground(c: Context, text: String) {
         val app = c.applicationContext
         val p = PreferencesStore(app)
+        if (p.reminderRings) BroCall.ring(app, text)   // a call-style ring inside the app (two-way)
         if (!p.callForReminders || !configured(p)) return
         CoroutineScope(Dispatchers.IO).launch { place(app, text) }
     }
 
     suspend fun handle(c: Context, p: PreferencesStore, raw: String): String? {
         val t = raw.trim()
+        if (appRx.matches(t)) {
+            BroCall.ring(c, "Hello boss, BRO here. Talk to me.")
+            return "Calling you now, boss. Answer the BRO call screen and we can talk."
+        }
         val test = testRx.matches(t)
         val m = if (test) null else callRx.find(t)
         if (!test && m == null) return null
-        if (!configured(p)) return "I can phone you through your Twilio account, but it isn't set up yet. Open Settings, \"BRO calls me\", and fill in the four boxes."
+        if (!configured(p)) {
+            // no Twilio: ring inside the app instead (free, and two-way: BRO listens to you)
+            BroCall.ring(c, if (test) "Hello boss, this is BRO. The call works." else m!!.groupValues[1].ifBlank { "Hello boss, BRO here. You asked me to call you." })
+            return "Calling you now, boss. Answer the BRO call screen and we can talk."
+        }
         val say = if (test) "Hello boss, this is BRO. Your call setup works." else m!!.groupValues[1].ifBlank { "" }.ifBlank { "Hello boss, BRO here. You asked me to call you." }
         val err = place(c, say)
         return err ?: "Calling you now, boss. It should ring on ${p.myNumber} in a few seconds."

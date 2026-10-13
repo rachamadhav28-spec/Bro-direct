@@ -148,6 +148,11 @@ class PreferencesStore(context: Context) {
     var callVoice: String
         get() = str("call_voice", "")
         set(value) { sp.edit().putString("call_voice", value.trim()).apply() }
+    /** Reminders ring like an incoming BRO call inside the app (you can answer and talk). */
+    var reminderRings: Boolean
+        get() = sp.getBoolean("reminder_rings", false)
+        set(value) { sp.edit().putBoolean("reminder_rings", value).apply() }
+
     var callForReminders: Boolean
         get() = sp.getBoolean("call_for_reminders", false)
         set(value) { sp.edit().putBoolean("call_for_reminders", value).apply() }
