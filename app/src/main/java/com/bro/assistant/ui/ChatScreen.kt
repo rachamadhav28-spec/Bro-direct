@@ -2,6 +2,7 @@ package com.bro.assistant.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.Arrangement
@@ -164,7 +165,11 @@ fun ChatScreen(
                     modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(vm.messages, key = { it.id }) { message -> Bubble(message) }
+                    val lastBroId = vm.messages.lastOrNull { !it.fromUser }?.id
+                    items(vm.messages, key = { it.id }) { message ->
+                        val speakingNow = vm.state == BroState.SPEAKING && message.id == (vm.readingId ?: lastBroId)
+                        Bubble(message, speakingNow, onListen = { vm.readAloud(message) }, onMute = { vm.mute() })
+                    }
                     if (thinking) item(key = "dino") { DinoThinking(if (vm.state == BroState.EXECUTING) "Working" else "Thinking") }
                 }
             }
@@ -222,13 +227,16 @@ fun ChatScreen(
 }
 
 @Composable
-private fun Bubble(message: ChatMessage) {
+private fun Bubble(message: ChatMessage, speakingNow: Boolean, onListen: () -> Unit, onMute: () -> Unit) {
     val appear = remember { androidx.compose.animation.core.Animatable(0f) }
     LaunchedEffect(Unit) { appear.animateTo(1f, androidx.compose.animation.core.tween(220)) }
     val shape = if (message.fromUser) RoundedCornerShape(18.dp, 18.dp, 4.dp, 18.dp) else RoundedCornerShape(18.dp, 18.dp, 18.dp, 4.dp)
-    Row(
+    val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
+    var copied by remember { mutableStateOf(false) }
+    LaunchedEffect(copied) { if (copied) { kotlinx.coroutines.delay(1800); copied = false } }
+    Column(
         Modifier.fillMaxWidth().graphicsLayer { alpha = appear.value; translationY = (1f - appear.value) * 12f },
-        horizontalArrangement = if (message.fromUser) Arrangement.End else Arrangement.Start
+        horizontalAlignment = if (message.fromUser) Alignment.End else Alignment.Start
     ) {
         Box(
             Modifier
@@ -239,7 +247,28 @@ private fun Bubble(message: ChatMessage) {
         ) {
             MessageBody(message.text)
         }
+        // under BRO's replies: Copy, and Mute (while it talks) or Listen
+        if (!message.fromUser && message.text.isNotBlank()) {
+            Row(Modifier.padding(start = 4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                MessageAction(if (copied) "Copied \u2713" else "Copy", "Copy this reply") {
+                    clipboard.setText(androidx.compose.ui.text.AnnotatedString(message.text)); copied = true
+                }
+                if (speakingNow) MessageAction("Mute", "Stop talking", BroColors.Error, onMute)
+                else MessageAction("Listen", "Read this reply aloud", onClick = onListen)
+            }
+        }
     }
+}
+
+@Composable
+private fun MessageAction(label: String, description: String, color: Color = BroColors.TextSecondary, onClick: () -> Unit) {
+    Box(
+        Modifier.heightIn(min = 40.dp).clip(RoundedCornerShape(20.dp))
+            .clickable(onClickLabel = description) { onClick() }
+            .semantics { contentDescription = description }
+            .padding(horizontal = 12.dp),
+        contentAlignment = Alignment.Center
+    ) { Text(label, color = color, fontSize = 13.sp, fontWeight = FontWeight.Medium) }
 }
 
 private fun statusLabel(state: BroState, partial: String): String = when (state) {

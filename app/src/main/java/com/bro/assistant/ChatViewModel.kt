@@ -86,6 +86,30 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         reply(opening, BroState.IDLE) { startListening() }
     }
 
+    /** Which message is being read aloud by the "Listen" button (null = the latest reply is being spoken). */
+    var readingId by mutableStateOf<Long?>(null)
+        private set
+
+    /** Read one message aloud (the "Listen" button under a reply). */
+    fun readAloud(message: ChatMessage) {
+        tts.stop()
+        readingId = message.id
+        val text = if ("```" in message.text) "I've written the code. Please check the chat." else message.text
+        tts.speak(
+            text, flush = true,
+            onStart = { if (state == BroState.IDLE || state == BroState.SUCCESS) state = BroState.SPEAKING },
+            onDone = { readingId = null; if (state == BroState.SPEAKING) state = BroState.IDLE }
+        )
+    }
+
+    /** The "Mute" button: stop talking right now. */
+    fun mute() {
+        tts.stop()
+        readingId = null
+        if (state == BroState.SPEAKING) state = BroState.IDLE
+        resumeConvo()
+    }
+
     fun hangUp() {
         convo = false
         silentRounds = 0
