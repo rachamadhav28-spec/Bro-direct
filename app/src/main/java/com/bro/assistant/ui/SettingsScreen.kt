@@ -351,6 +351,29 @@ fun SettingsScreen(
         if (callMsg.isNotEmpty()) Text(callMsg, color = Color.LightGray, fontSize = 12.sp)
 
         }
+        SectionHeader("BRO learns", openSection == "BRO learns") { openSection = if (openSection == "BRO learns") "" else "BRO learns" }
+        if (openSection == "BRO learns") {
+            var nightly by remember(tick) { mutableStateOf(prefs.learnNightly) }
+            var notes by remember(tick) { mutableStateOf(com.bro.assistant.learn.LearnStore.count(ctx)) }
+            var learnMsg by remember { mutableStateOf("") }
+            var learning by remember { mutableStateOf(false) }
+            val learnScope = androidx.compose.runtime.rememberCoroutineScope()
+            SwitchRow("Study by itself at night (12 to 3)", nightly) { on ->
+                nightly = on; prefs.learnNightly = on
+                com.bro.assistant.learn.LearnJob.schedule(ctx)
+            }
+            Text("BRO writes study notes on coding, Telugu and Tenglish using your AI keys or the offline brain, and reads them before answering. It only runs when the phone is idle. Notes saved: $notes", color = Color.Gray, fontSize = 12.sp)
+            Button(enabled = !learning, onClick = {
+                learning = true; learnMsg = "Studying..."
+                learnScope.launch {
+                    val done = try { com.bro.assistant.learn.Learner.session(ctx, prefs, 3, 4 * 60_000L) { learnMsg = it } } catch (e: Exception) { emptyList() }
+                    learnMsg = if (done.isEmpty()) "Could not study now (no key or internet)." else "Learned ${done.size} topics."
+                    notes = com.bro.assistant.learn.LearnStore.count(ctx); learning = false
+                }
+            }) { Text("Learn now") }
+            if (learnMsg.isNotEmpty()) Text(learnMsg, color = Color.LightGray, fontSize = 12.sp)
+            Button(onClick = { com.bro.assistant.learn.LearnStore.clear(ctx); notes = 0 }) { Text("Forget lessons") }
+        }
         SectionHeader("Floating circle", openSection == "Floating circle") { openSection = if (openSection == "Floating circle") "" else "Floating circle" }
         if (openSection == "Floating circle") {
         var bubbleOn by remember(tick) { mutableStateOf(prefs.bubbleEnabled && android.provider.Settings.canDrawOverlays(ctx)) }

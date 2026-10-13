@@ -111,6 +111,11 @@
             android:name=".features.CallReceiver"
             android:exported="false" />
 
+        <service
+            android:name=".learn.LearnJobService"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+
         <receiver
             android:name=".proactive.ProactiveReceiver"
             android:exported="false" />

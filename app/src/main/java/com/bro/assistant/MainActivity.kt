@@ -302,6 +302,7 @@ class MainActivity : FragmentActivity() {
     override fun onStart() {
         super.onStart()
         vm.appVisible = true
+        try { com.bro.assistant.learn.LearnJob.schedule(this) } catch (_: Exception) {}
         BroListenerService.setPaused(true) // free the microphone while BRO is on screen
         if (!locked && leftAt > 0 && lockEnabled() && !com.bro.assistant.security.LockGrace.active() &&
             android.os.SystemClock.elapsedRealtime() - leftAt > 30_000L) locked = true

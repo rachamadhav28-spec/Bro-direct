@@ -116,6 +116,14 @@ class PreferencesStore(context: Context) {
         get() = str("city", "")
         set(value) { sp.edit().putString("city", value.trim()).apply() }
 
+    /** BRO studies by itself at night (12 to 3). */
+    var learnNightly: Boolean
+        get() = sp.getBoolean("learn_nightly", true)
+        set(value) { sp.edit().putBoolean("learn_nightly", value).apply() }
+    var lastLearned: Long
+        get() = sp.getLong("last_learned", 0L)
+        set(value) { sp.edit().putLong("last_learned", value).apply() }
+
     /** BRO may speak up by itself (battery, calendar events). */
     var proactiveEnabled: Boolean
         get() = sp.getBoolean("proactive_enabled", false)

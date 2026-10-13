@@ -20,7 +20,7 @@ data class PlanResult(
  * parser, and only then the AI. Every plan is validated before anything runs.
  */
 class ActionPlanner(
-    context: Context,
+    private val context: Context,
     private val memory: SessionMemory,
     private val prefs: PreferencesStore
 ) {
@@ -65,7 +65,8 @@ class ActionPlanner(
         // "divide <task>" (or a long multi-part message): split it and give each part to the best free AI
         val divideCmd = Regex("^(?:divide|split|team)\\b(?:\\s+task)?[:,]?\\s+(.{8,})$", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
             .find(text.trim())
-        val auto = divideCmd == null && prefs.hasProviderKeys() &&
+        val codeJob = looksLikeCode(text) && com.bro.assistant.ai.CodeAgent.isComplex(text) && !com.bro.assistant.ai.LocalLlm.willUse(prefs)
+        val auto = divideCmd == null && !codeJob && prefs.hasProviderKeys() &&
             com.bro.assistant.ai.Router.keyedProviders(prefs).size >= 2 &&
             com.bro.assistant.ai.TaskDivider.looksBig(text)
         if (divideCmd != null || auto) {
@@ -73,7 +74,7 @@ class ActionPlanner(
             return try {
                 val answer = com.bro.assistant.ai.TaskDivider.run(prefs, gemini, task, memory.historyText().takeLast(1500))
                 SessionMemory.extractLastCode(answer)?.let { memory.lastCode = it }
-                PlanResult(reply = answer)
+                PlanResult(reply = withPdf(text, answer))
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -83,9 +84,12 @@ class ActionPlanner(
         }
         if (looksLikeCode(text)) {
             return try {
-                val answer = ai.answerFreely(text)
+                val answer = if (codeJob) {
+                    val notes = com.bro.assistant.learn.LearnStore.promptText(context.applicationContext, text, 1500)
+                    com.bro.assistant.ai.CodeAgent.solve(context.applicationContext, gemini, text, notes)
+                } else ai.answerFreely(text)
                 SessionMemory.extractLastCode(answer)?.let { memory.lastCode = it }
-                PlanResult(reply = answer)
+                PlanResult(reply = withPdf(text, answer))
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -126,5 +130,11 @@ class ActionPlanner(
             ActionValidator.validate(action)?.let { return PlanResult(error = it) }
         }
         return PlanResult(reply = reply, actions = actions)
+    }
+
+    /** Adds a note that a PDF of the code was saved (Downloads/BRO). */
+    private fun withPdf(request: String, answer: String): String {
+        val name = try { com.bro.assistant.features.CodePdf.make(context.applicationContext, request, answer) } catch (e: Exception) { null }
+        return if (name == null) answer else answer + "\n\nPDF saved: Downloads/BRO/" + name + " (say \"open the pdf\" or \"share the pdf\")"
     }
 }
