@@ -31,7 +31,7 @@ Build number = `github.run_number` (shown as "build N" next to the BRO title).
 - Crash reporter: MainActivity stores the last uncaught exception and shows it in chat on next start.
 
 ## Multi-provider router + task divider (added 2026-10-12)
-- ai/Providers.kt: `Provider` enum (Gemini, Groq, NVIDIA NIM, OpenRouter, Mistral, Cerebras, GitHub Models, Cloudflare), `MultiAi` (OpenAI-format
+- ai/Providers.kt: `Provider` enum (Gemini, Groq, NVIDIA NIM, OpenRouter, GitHub Models, Cloudflare), `MultiAi` (OpenAI-format
   client, tries the next model name on 404/400), `Router` (best provider per `Skill`, skips a provider for 60 s after a 429, falls to the next key).
 - ai/TaskDivider.kt: planner call splits a task into <=6 parts (code/fast/long/reason/general), each part goes to its best provider; command
   "divide <task>", or automatic for long multi-part messages when >=2 keys are set. "ai status" lists keys and who does what.

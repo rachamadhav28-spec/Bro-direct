@@ -7,7 +7,7 @@ import org.json.JSONObject
 
 /**
  * Splits a big task into parts, gives each part to the free AI that is best at that kind of work
- * (coding -> Mistral/Codestral, quick -> Groq, long text -> Gemini, thinking -> NVIDIA ...),
+ * (coding -> OpenRouter (Qwen3 Coder), quick -> Groq, long text -> Gemini, thinking -> NVIDIA ...),
  * and joins the answers. Parts that depend on earlier parts get those results as context.
  */
 object TaskDivider {
