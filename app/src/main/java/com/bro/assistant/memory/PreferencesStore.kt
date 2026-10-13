@@ -120,6 +120,17 @@ class PreferencesStore(context: Context) {
     var learnNightly: Boolean
         get() = sp.getBoolean("learn_nightly", true)
         set(value) { sp.edit().putBoolean("learn_nightly", value).apply() }
+    /** Theme colours (ARGB as unsigned long) and the moving HUD background. */
+    var accentPrimary: Long
+        get() = sp.getLong("accent_primary", 0xFF00E5FFL)
+        set(value) { sp.edit().putLong("accent_primary", value).apply() }
+    var accentSecondary: Long
+        get() = sp.getLong("accent_secondary", 0xFF9D6BFFL)
+        set(value) { sp.edit().putLong("accent_secondary", value).apply() }
+    var hudAnimation: Boolean
+        get() = sp.getBoolean("hud_animation", true)
+        set(value) { sp.edit().putBoolean("hud_animation", value).apply() }
+
     /** Study non-stop until stopped (restarts after the phone restarts). */
     var studyNonStop: Boolean
         get() = sp.getBoolean("study_nonstop", false)

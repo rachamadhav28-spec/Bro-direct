@@ -6,6 +6,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.clickable
 import android.os.Build
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -390,6 +393,54 @@ fun SettingsScreen(
                 }) { Text("Restore") }
             }
             if (backupMsg.isNotEmpty()) Text(backupMsg, color = Color.LightGray, fontSize = 12.sp)
+        }
+        SectionHeader("Look and animation", openSection == "Look and animation") { openSection = if (openSection == "Look and animation") "" else "Look and animation" }
+        if (openSection == "Look and animation") {
+            var hudOn by remember { mutableStateOf(com.bro.assistant.ui.theme.ThemeState.hud) }
+            SwitchRow("Moving HUD background (grid, particles, rings)", hudOn) { on ->
+                hudOn = on; com.bro.assistant.ui.theme.ThemeState.hud = on; prefs.hudAnimation = on
+            }
+            Text("Turn it off to save battery. Colours below change the whole app at once. Green, red, purple and orange keep their meaning for done, failed, listening and thinking.", color = BroColors.TextSecondary, fontSize = 12.sp)
+            Spacer(Modifier.height(10.dp))
+            Text("Colour themes", color = BroColors.TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(6.dp))
+            com.bro.assistant.ui.theme.ThemeState.presets.chunked(2).forEach { pair ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    pair.forEach { pr ->
+                        val on = com.bro.assistant.ui.theme.ThemeState.primary == Color(pr.a.toInt())
+                        Row(
+                            Modifier.weight(1f).heightIn(min = 52.dp).clip(RoundedCornerShape(14.dp))
+                                .background(BroColors.Surface2)
+                                .border(if (on) 2.dp else 1.dp, if (on) Color(pr.a.toInt()) else BroColors.Outline, RoundedCornerShape(14.dp))
+                                .clickable(onClickLabel = "Use ${pr.name}") { com.bro.assistant.ui.theme.ThemeState.set(prefs, Color(pr.a.toInt()), Color(pr.b.toInt())) }
+                                .padding(horizontal = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(Modifier.size(18.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color(pr.a.toInt())))
+                            Spacer(Modifier.width(4.dp))
+                            Box(Modifier.size(18.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color(pr.b.toInt())))
+                            Spacer(Modifier.width(10.dp))
+                            Text(pr.name + if (on) " \u2713" else "", color = BroColors.TextPrimary, fontSize = 14.sp)
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+            }
+            Spacer(Modifier.height(6.dp))
+            Text("Your own colours (hex, like #FF4DA6)", color = BroColors.TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            var hexA by remember { mutableStateOf("") }
+            var hexB by remember { mutableStateOf("") }
+            var hexMsg by remember { mutableStateOf("") }
+            OutlinedTextField(value = hexA, onValueChange = { hexA = it; hexMsg = "" }, label = { Text("Main colour") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(value = hexB, onValueChange = { hexB = it; hexMsg = "" }, label = { Text("Second colour") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            Button(onClick = {
+                val a = com.bro.assistant.ui.theme.ThemeState.parse(hexA)
+                val b = com.bro.assistant.ui.theme.ThemeState.parse(hexB.ifBlank { hexA })
+                if (a == null || b == null) hexMsg = "Use a bright 6-digit colour like #FF4DA6. Very dark colours can't be read on the dark screen."
+                else { com.bro.assistant.ui.theme.ThemeState.set(prefs, a, b); hexMsg = "Applied." }
+            }) { Text("Apply my colours") }
+            if (hexMsg.isNotEmpty()) Text(hexMsg, color = BroColors.TextSecondary, fontSize = 12.sp)
+            OutlinedButton(onClick = { com.bro.assistant.ui.theme.ThemeState.set(prefs, Color(0xFF00E5FF), Color(0xFF9D6BFF)) }) { Text("Back to Deep space") }
         }
         SectionHeader("BRO learns", openSection == "BRO learns") { openSection = if (openSection == "BRO learns") "" else "BRO learns" }
         if (openSection == "BRO learns") {

@@ -15,7 +15,7 @@ import androidx.compose.ui.unit.sp
 object BroColors {
     val Background = Color(0xFF05080F)
     val Panel = Color(0xFF111A2B)
-    val Accent = Color(0xFF00E5FF)
+    val Accent: Color get() = ThemeState.primary
     val UserBubble = Color(0xFF16385A)
     val BroBubble = Color(0xFF151F33)
     val Listening = Color(0xFF3DDC84)
@@ -56,7 +56,7 @@ fun BroTheme(content: @Composable () -> Unit) {
         colorScheme = darkColorScheme(
             primary = BroColors.Accent,
             onPrimary = Color.Black,
-            secondary = BroColors.Thinking,
+            secondary = ThemeState.secondary,
             background = BroColors.Background,
             onBackground = BroColors.TextPrimary,
             surface = BroColors.Panel,

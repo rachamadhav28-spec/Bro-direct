@@ -83,7 +83,7 @@ fun ChatScreen(
         }
     }
 
-    CalmBackground {
+    FuturisticBackground {
     Column(
         Modifier
             .fillMaxSize()
@@ -97,10 +97,7 @@ fun ChatScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column {
-                Text(
-                    "BRO", fontSize = 24.sp, fontWeight = FontWeight.Black, letterSpacing = 3.sp,
-                    style = androidx.compose.ui.text.TextStyle(brush = neonBrush())
-                )
+                BroWordmark(24.sp, 3.sp)
                 Text("build " + com.bro.assistant.BuildConfig.BUILD_NUMBER, color = BroColors.TextSecondary, fontSize = 11.sp)
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -142,10 +139,13 @@ fun ChatScreen(
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Box(
-                        Modifier.size(72.dp).clip(CircleShape)
-                            .background(Brush.linearGradient(listOf(NeonCyan.copy(alpha = 0.9f), NeonViolet.copy(alpha = 0.9f))))
-                    )
+                    Box(Modifier.size(104.dp), contentAlignment = Alignment.Center) {
+                        HudRings(Modifier.fillMaxSize())
+                        Box(
+                            Modifier.size(64.dp).clip(CircleShape)
+                                .background(Brush.linearGradient(listOf(NeonCyan.copy(alpha = 0.9f), NeonViolet.copy(alpha = 0.9f))))
+                        )
+                    }
                     Spacer(Modifier.height(16.dp))
                     Text("Hi, I'm BRO", color = BroColors.TextPrimary, fontSize = 26.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(4.dp))

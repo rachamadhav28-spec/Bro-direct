@@ -22,6 +22,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -34,11 +36,15 @@ import kotlinx.coroutines.delay
 @Composable
 private fun RoundButton(label: String, color: Color, onClick: () -> Unit) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.size(72.dp).clip(CircleShape).background(color).clickable { onClick() }, contentAlignment = Alignment.Center) {
+        Box(
+            Modifier.size(72.dp).clip(CircleShape).background(color).clickable(onClickLabel = label) { onClick() }
+                .semantics { contentDescription = label },
+            contentAlignment = Alignment.Center
+        ) {
             Text(if (color == Color(0xFF22C55E)) "\u260E" else "\u2715", color = Color.White, fontSize = 28.sp)
         }
         Spacer(Modifier.height(6.dp))
-        Text(label, color = Color.White, fontSize = 13.sp)
+        Text(label, color = Color.White, fontSize = 14.sp)
     }
 }
 
@@ -54,7 +60,7 @@ fun BroCallScreen(vm: ChatViewModel, talking: Boolean, text: String, onAnswer: (
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(top = 60.dp)) {
-                Text("BRO", color = NeonCyan, fontSize = 40.sp, fontWeight = FontWeight.Black, letterSpacing = 6.sp)
+                BroWordmark(40.sp, 6.sp)
                 Spacer(Modifier.height(6.dp))
                 Text(
                     if (!talking) "BRO is calling..." else "%d:%02d".format(seconds / 60, seconds % 60),

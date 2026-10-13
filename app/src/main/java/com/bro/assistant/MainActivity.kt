@@ -146,6 +146,7 @@ class MainActivity : FragmentActivity() {
         showHistory = savedInstanceState?.getBoolean("h") ?: false
         handleWake(intent)
 
+        com.bro.assistant.ui.theme.ThemeState.load(com.bro.assistant.memory.PreferencesStore(this))
         setContent {
             BroTheme {
                 Box(Modifier.fillMaxSize()) {

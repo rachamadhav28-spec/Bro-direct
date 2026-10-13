@@ -26,7 +26,7 @@ fun LockScreen(message: String, onUnlock: () -> Unit) {
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("BRO", color = NeonCyan, fontSize = 40.sp, fontWeight = FontWeight.Black, letterSpacing = 6.sp)
+            BroWordmark(40.sp, 6.sp)
             Spacer(Modifier.height(8.dp))
             Text("Locked", color = Color.White, fontSize = 20.sp)
             Spacer(Modifier.height(8.dp))

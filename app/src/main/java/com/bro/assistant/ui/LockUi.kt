@@ -141,7 +141,7 @@ fun BroLockScreen(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("BRO", color = NeonCyan, fontSize = 36.sp, fontWeight = FontWeight.Black, letterSpacing = 6.sp)
+            BroWordmark(36.sp, 6.sp)
             Spacer(Modifier.height(6.dp))
             Text(message, color = Color.White, fontSize = 16.sp, textAlign = TextAlign.Center)
             Spacer(Modifier.height(4.dp))

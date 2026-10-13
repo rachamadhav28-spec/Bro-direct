@@ -55,7 +55,7 @@ fun LoginScreen(onPickGoogle: () -> Boolean, onTyped: (String) -> Unit) {
     var error by remember { mutableStateOf("") }
     var manual by remember { mutableStateOf(false) }
     Page {
-        Text("BRO", color = NeonCyan, fontSize = 42.sp, fontWeight = FontWeight.Black, letterSpacing = 6.sp)
+        BroWordmark(42.sp, 6.sp)
         Spacer(Modifier.height(18.dp))
         Column(
             Modifier.fillMaxWidth()
