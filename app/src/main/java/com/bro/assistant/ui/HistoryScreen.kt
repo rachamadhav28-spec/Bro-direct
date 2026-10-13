@@ -40,7 +40,7 @@ import java.util.Date
 @Composable
 fun HistoryScreen(vm: ChatViewModel, onBack: () -> Unit, onOpen: () -> Unit) {
     var query by remember { mutableStateOf("") }
-    var deleteId by remember { mutableStateOf<String?>(null) }
+    var deleteId by remember { mutableStateOf<Long?>(null) }
     val shown = vm.history.filter { query.isBlank() || it.title.contains(query, ignoreCase = true) }
     FuturisticBackground {
         Column(Modifier.fillMaxSize().systemBarsPadding()) {
