@@ -23,6 +23,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.background
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -46,36 +48,53 @@ private fun Page(content: @Composable () -> Unit) {
     }
 }
 
-/** Shown the very first time BRO opens: sign in with a Gmail account of this phone. */
+/** Shown the very first time BRO opens: pick a Google account from the phone's own account chooser (not a web page). */
 @Composable
 fun LoginScreen(onPickGoogle: () -> Boolean, onTyped: (String) -> Unit) {
     var typed by remember { mutableStateOf("") }
     var error by remember { mutableStateOf("") }
+    var manual by remember { mutableStateOf(false) }
     Page {
         Text("BRO", color = NeonCyan, fontSize = 42.sp, fontWeight = FontWeight.Black, letterSpacing = 6.sp)
-        Spacer(Modifier.height(8.dp))
-        Text("Welcome, boss", color = Color.White, fontSize = 20.sp)
-        Spacer(Modifier.height(8.dp))
-        Text(
-            "Sign in with your Gmail to start. BRO keeps this account to recover your BRO lock if you ever forget it.",
-            color = Color.Gray, fontSize = 13.sp, textAlign = TextAlign.Center
-        )
-        Spacer(Modifier.height(24.dp))
-        Button(onClick = { if (!onPickGoogle()) error = "Google account picker is not available on this phone. Type your Gmail below." }) {
-            Text("Sign in with Gmail")
-        }
         Spacer(Modifier.height(18.dp))
-        OutlinedTextField(
-            value = typed, onValueChange = { typed = it.trim(); error = "" }, singleLine = true,
-            label = { Text("Or type your Gmail address") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), modifier = Modifier.fillMaxWidth()
-        )
-        Spacer(Modifier.height(8.dp))
-        OutlinedButton(onClick = {
-            if (Regex("^[A-Za-z0-9._%+-]+@gmail\\.com$", RegexOption.IGNORE_CASE).matches(typed)) onTyped(typed)
-            else error = "Please type a valid Gmail address (name@gmail.com)."
-        }) { Text("Continue") }
-        if (error.isNotEmpty()) { Spacer(Modifier.height(8.dp)); Text(error, color = Color(0xFFEF5350), fontSize = 13.sp, textAlign = TextAlign.Center) }
+        Column(
+            Modifier.fillMaxWidth()
+                .clip(androidx.compose.foundation.shape.RoundedCornerShape(24.dp))
+                .background(Color(0xFF121212))
+                .padding(22.dp)
+        ) {
+            Text("Sign in with Google", color = Color.LightGray, fontSize = 13.sp)
+            Spacer(Modifier.height(14.dp))
+            Text("Choose an account", color = Color.White, fontSize = 26.sp)
+            Spacer(Modifier.height(6.dp))
+            Text("to continue to BRO", color = Color(0xFF8AB4F8), fontSize = 15.sp)
+            Spacer(Modifier.height(16.dp))
+            Text(
+                "Your phone will show the Google accounts on it. BRO keeps only the email you pick, to help you recover your BRO lock.",
+                color = Color.Gray, fontSize = 13.sp
+            )
+            Spacer(Modifier.height(18.dp))
+            Button(
+                modifier = Modifier.fillMaxWidth(),
+                onClick = { if (!onPickGoogle()) { error = "The phone's account chooser is not available. Type your Gmail below."; manual = true } }
+            ) { Text("Choose an account") }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = { manual = !manual }) { Text("Use another account") }
+            if (manual) {
+                Spacer(Modifier.height(10.dp))
+                OutlinedTextField(
+                    value = typed, onValueChange = { typed = it.trim(); error = "" }, singleLine = true,
+                    label = { Text("Gmail address") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(8.dp))
+                Button(modifier = Modifier.fillMaxWidth(), onClick = {
+                    if (Regex("^[A-Za-z0-9._%+-]+@gmail\\.com$", RegexOption.IGNORE_CASE).matches(typed)) onTyped(typed)
+                    else error = "Please type a valid Gmail address (name@gmail.com)."
+                }) { Text("Continue") }
+            }
+            if (error.isNotEmpty()) { Spacer(Modifier.height(8.dp)); Text(error, color = Color(0xFFEF5350), fontSize = 13.sp) }
+        }
     }
 }
 

@@ -67,7 +67,7 @@ object CallMe {
                 // Trial accounts may not send their own words, only Twilio's ready-made voice template.
                 val r = send("To=$to&From=$from&Url=" + URLEncoder.encode(TRIAL_TEMPLATE, "UTF-8"))
                 code = r.first; err = r.second
-                if (code in 200..299) return@withContext "Call placed. Your Twilio account is a trial, so the call can only play Twilio's own sample message, not BRO's words. Upgrade the Twilio account to let BRO speak its own message."
+                if (code in 200..299) return@withContext "Call placed. A Twilio trial account can only play Twilio's own sample message, so BRO's words are not spoken. For BRO's own voice, use the free in-app call: say \"call me\"."
             }
             when {
                 code in 200..299 -> null
@@ -86,7 +86,7 @@ object CallMe {
         val app = c.applicationContext
         val p = PreferencesStore(app)
         if (p.reminderRings) BroCall.ring(app, text)   // a call-style ring inside the app (two-way)
-        if (!p.callForReminders || !configured(p)) return
+        if (!p.callViaTwilio || !p.callForReminders || !configured(p)) return
         CoroutineScope(Dispatchers.IO).launch { place(app, text) }
     }
 
@@ -99,8 +99,8 @@ object CallMe {
         val test = testRx.matches(t)
         val m = if (test) null else callRx.find(t)
         if (!test && m == null) return null
-        if (!configured(p)) {
-            // no Twilio: ring inside the app instead (free, and two-way: BRO listens to you)
+        if (!p.callViaTwilio || !configured(p)) {
+            // default: ring inside the app (free, and two-way: BRO listens to you). Twilio only when you switch it on.
             BroCall.ring(c, if (test) "Hello boss, this is BRO. The call works." else m!!.groupValues[1].ifBlank { "Hello boss, BRO here. You asked me to call you." })
             return "Calling you now, boss. Answer the BRO call screen and we can talk."
         }

@@ -104,7 +104,7 @@ class MainActivity : FragmentActivity() {
     private fun pickGoogleAccount(): Boolean = try {
         val i = com.google.android.gms.common.AccountPicker.newChooseAccountIntent(
             com.google.android.gms.common.AccountPicker.AccountChooserOptions.Builder()
-                .setAllowableAccountsTypes(listOf("com.google")).build()
+                .setAllowableAccountsTypes(listOf("com.google")).setAlwaysShowAccountPicker(true).build()
         )
         com.bro.assistant.security.LockGrace.allowFor(5 * 60_000L)
         accountLauncher.launch(i)

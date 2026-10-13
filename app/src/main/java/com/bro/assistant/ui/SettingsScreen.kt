@@ -1,6 +1,9 @@
 package com.bro.assistant.ui
 
 import android.Manifest
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.clickable
 import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -70,6 +73,7 @@ fun SettingsScreen(
         }
     }
     var saved by remember { mutableStateOf(false) }
+    var openSection by remember { mutableStateOf("") }
     val wakeOn = remember(tick) { prefs.wakeEnabled }
 
     val accessibilityOn = remember(tick) { PermissionManager.accessibilityEnabled(ctx) }
@@ -91,8 +95,22 @@ fun SettingsScreen(
             Text("Settings", color = BroColors.Accent, fontSize = 22.sp, fontWeight = FontWeight.Bold)
             OutlinedButton(onClick = onBack) { Text("Back") }
         }
+        Spacer(Modifier.height(8.dp))
+        Button(modifier = Modifier.fillMaxWidth(), onClick = {
+            prefs.apiKey = apiKey
+            provKeys.forEach { (id, v) -> prefs.setProviderKey(id, v) }
+            prefs.model = model
+            prefs.githubToken = githubToken
+            prefs.wakePhrases = wakePhrases
+            prefs.countryCode = countryCode
+            prefs.confirmBeforeSend = confirmSend
+            prefs.speakReplies = speakReplies
+            saved = true
+        }) { Text(if (saved) "Saved" else "Save") }
+        Text("Tap a heading to open it. Tap Save after changing keys or switches.", color = Color.Gray, fontSize = 12.sp)
 
-        Heading("AI (needs internet)")
+        SectionHeader("AI (needs internet)", openSection == "AI (needs internet)") { openSection = if (openSection == "AI (needs internet)") "" else "AI (needs internet)" }
+        if (openSection == "AI (needs internet)") {
         OutlinedTextField(
             value = apiKey, onValueChange = { apiKey = it; saved = false },
             label = { Text("Gemini API key (several keys: separate with commas)") }, singleLine = true,
@@ -108,7 +126,9 @@ fun SettingsScreen(
             label = { Text("Model name") }, singleLine = true, modifier = Modifier.fillMaxWidth()
         )
 
-        Heading("More free AI keys (BRO splits big tasks between them)")
+        }
+        SectionHeader("More free AI keys (BRO splits big tasks between them)", openSection == "More free AI keys (BRO splits big tasks between them)") { openSection = if (openSection == "More free AI keys (BRO splits big tasks between them)") "" else "More free AI keys (BRO splits big tasks between them)" }
+        if (openSection == "More free AI keys (BRO splits big tasks between them)") {
         Text(
             "Say \"divide <your big task>\" and BRO splits it, then gives coding to the best coder, quick parts to the fastest, " +
                 "long text to Gemini, and so on. If one key runs out, the next one takes over. " +
@@ -128,10 +148,14 @@ fun SettingsScreen(
             }
         }
 
-        Heading("Offline brain (no internet, no API key)")
+        }
+        SectionHeader("Offline brain (no internet, no API key)", openSection == "Offline brain (no internet, no API key)") { openSection = if (openSection == "Offline brain (no internet, no API key)") "" else "Offline brain (no internet, no API key)" }
+        if (openSection == "Offline brain (no internet, no API key)") {
         OfflineBrainSection(prefs)
 
-        Heading("Security (BRO lock)")
+        }
+        SectionHeader("Security (BRO lock)", openSection == "Security (BRO lock)") { openSection = if (openSection == "Security (BRO lock)") "" else "Security (BRO lock)" }
+        if (openSection == "Security (BRO lock)") {
         val lockType = remember(tick) { com.bro.assistant.security.LockStore.type(ctx) }
         val lockOn = remember(tick) { com.bro.assistant.security.LockStore.isSet(ctx) }
         var bio by remember { mutableStateOf(prefs.lockBiometric) }
@@ -160,21 +184,27 @@ fun SettingsScreen(
         OutlinedButton(onClick = onMailSetup) { Text(if (mailOn) "Email recovery settings" else "Set up email recovery") }
         Text("If you forget the lock, the lock screen's Forgot link accepts your fingerprint or the emailed code.", color = Color.Gray, fontSize = 12.sp)
 
-        Heading("GitHub")
+        }
+        SectionHeader("GitHub", openSection == "GitHub") { openSection = if (openSection == "GitHub") "" else "GitHub" }
+        if (openSection == "GitHub") {
         OutlinedTextField(
             value = githubToken, onValueChange = { githubToken = it; saved = false },
             label = { Text("GitHub token (needs repo + workflow)") }, singleLine = true,
             visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth()
         )
 
-        Heading("Messaging")
+        }
+        SectionHeader("Messaging", openSection == "Messaging") { openSection = if (openSection == "Messaging") "" else "Messaging" }
+        if (openSection == "Messaging") {
         OutlinedTextField(
             value = countryCode, onValueChange = { countryCode = it; saved = false },
             label = { Text("Default country code (digits only)") }, singleLine = true, modifier = Modifier.fillMaxWidth()
         )
         SwitchRow("Ask before sending a message", confirmSend) { confirmSend = it; saved = false }
 
-        Heading("Voice")
+        }
+        SectionHeader("Voice", openSection == "Voice") { openSection = if (openSection == "Voice") "" else "Voice" }
+        if (openSection == "Voice") {
         SwitchRow("Speak replies", speakReplies) { speakReplies = it; saved = false }
         Text("Voice: $voiceLabel", color = Color.White)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -215,7 +245,9 @@ fun SettingsScreen(
             if (voiceMsg.isNotEmpty()) Text(voiceMsg, color = Color.LightGray, fontSize = 12.sp)
         }
 
-        Heading("Morning briefing and alerts")
+        }
+        SectionHeader("Morning briefing and alerts", openSection == "Morning briefing and alerts") { openSection = if (openSection == "Morning briefing and alerts") "" else "Morning briefing and alerts" }
+        if (openSection == "Morning briefing and alerts") {
         var city by remember(tick) { mutableStateOf(prefs.city) }
         OutlinedTextField(
             value = city, onValueChange = { city = it; prefs.city = it },
@@ -230,7 +262,9 @@ fun SettingsScreen(
         Text("Low battery warnings, an evening heads-up about tomorrow's exams or events, and a warning an hour before an event. Checked about every 15 minutes (Android may delay it). Spoken aloud only while the phone is awake.", color = Color.Gray, fontSize = 12.sp)
         PermRow("Calendar (for exam and event alerts)", com.bro.assistant.proactive.CalendarReader.allowed(ctx)) { onRequest(Manifest.permission.READ_CALENDAR) }
 
-        Heading("BRO's memory")
+        }
+        SectionHeader("BRO's memory", openSection == "BRO's memory") { openSection = if (openSection == "BRO's memory") "" else "BRO's memory" }
+        if (openSection == "BRO's memory") {
         var facts by remember(tick) { mutableStateOf(com.bro.assistant.memory.MemoryStore.all(ctx)) }
         Text("Say \"remember that my mom's number is ...\", \"remember my timetable: ...\", or \"what do you remember\". BRO never stores passwords, PINs or OTPs.", color = Color.Gray, fontSize = 12.sp)
         if (facts.isEmpty()) Text("Nothing saved yet.", color = Color.LightGray, fontSize = 13.sp)
@@ -242,7 +276,9 @@ fun SettingsScreen(
         }
         if (facts.isNotEmpty()) OutlinedButton(onClick = { com.bro.assistant.memory.MemoryStore.clear(ctx); facts = emptyList() }) { Text("Forget everything") }
 
-        Heading("Messages and driving")
+        }
+        SectionHeader("Messages and driving", openSection == "Messages and driving") { openSection = if (openSection == "Messages and driving") "" else "Messages and driving" }
+        if (openSection == "Messages and driving") {
         val listenerOn = remember(tick) { com.bro.assistant.features.MessageReplies.enabled(ctx) }
         PermRow("Notification access (read and reply to messages)", listenerOn) {
             com.bro.assistant.security.LockGrace.allowFor(5 * 60_000L)
@@ -259,7 +295,9 @@ fun SettingsScreen(
         if (Build.VERSION.SDK_INT >= 31) PermRow("Bluetooth (to notice your car)", com.bro.assistant.PermissionManager.has(ctx, Manifest.permission.BLUETOOTH_CONNECT)) { onRequest(Manifest.permission.BLUETOOTH_CONNECT) }
         Text("Or just say \"drive mode\". Drive mode reads messages aloud even with the screen off and keeps the microphone on (needs the floating circle permission).", color = Color.Gray, fontSize = 12.sp)
 
-        Heading("BRO calls me (real phone call)")
+        }
+        SectionHeader("BRO calls me", openSection == "BRO calls me") { openSection = if (openSection == "BRO calls me") "" else "BRO calls me" }
+        if (openSection == "BRO calls me") {
         val callScope = androidx.compose.runtime.rememberCoroutineScope()
         var twSid by remember { mutableStateOf(prefs.twilioSid) }
         var twTok by remember { mutableStateOf("") }
@@ -269,9 +307,9 @@ fun SettingsScreen(
         var callRem by remember { mutableStateOf(prefs.callForReminders) }
         var callMsg by remember { mutableStateOf("") }
         Text(
-            "BRO can ring your number and speak, for reminders or when you say \"call me\". It uses YOUR Twilio account (twilio.com): " +
-                "paste its Account SID, Auth token and the Twilio phone number below. It is a one-way call (you hear BRO, BRO can't hear you). " +
-                "Twilio charges per call after the free trial credit, and a trial account can only call numbers you verified there.",
+            "FREE: say \"call me\" and BRO rings inside the app with a full-screen call. Answer it and BRO talks and listens to you. " +
+                "Reminders ring the same way. Nothing to set up. " +
+                "OPTIONAL (Twilio, one-way, a trial account only plays Twilio's sample message): ring your real phone number. Only fill in the boxes below if you want that.",
             color = Color.Gray, fontSize = 12.sp
         )
         OutlinedTextField(value = twSid, onValueChange = { twSid = it }, label = { Text("Twilio Account SID") }, singleLine = true, modifier = Modifier.fillMaxWidth())
@@ -294,6 +332,8 @@ fun SettingsScreen(
             }) { Text("Allow full-screen calls") }
         }
         Text("Say \"call me\" (without Twilio) or \"call me here\" and BRO rings inside the app. Answer it and BRO listens to you.", color = Color.Gray, fontSize = 12.sp)
+        var viaTw by remember { mutableStateOf(prefs.callViaTwilio) }
+        SwitchRow("Use Twilio for \"call me\" (optional)", viaTw) { viaTw = it; prefs.callViaTwilio = it }
         SwitchRow("Also call me when a reminder goes off", callRem) { callRem = it; prefs.callForReminders = it }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = {
@@ -310,7 +350,9 @@ fun SettingsScreen(
         }
         if (callMsg.isNotEmpty()) Text(callMsg, color = Color.LightGray, fontSize = 12.sp)
 
-        Heading("Floating circle")
+        }
+        SectionHeader("Floating circle", openSection == "Floating circle") { openSection = if (openSection == "Floating circle") "" else "Floating circle" }
+        if (openSection == "Floating circle") {
         var bubbleOn by remember(tick) { mutableStateOf(prefs.bubbleEnabled && android.provider.Settings.canDrawOverlays(ctx)) }
         SwitchRow("Show BRO's circle on every screen", bubbleOn) { on ->
             if (on && !android.provider.Settings.canDrawOverlays(ctx)) {
@@ -333,7 +375,9 @@ fun SettingsScreen(
             color = Color.Gray, fontSize = 12.sp
         )
 
-        Heading("Wake phrase")
+        }
+        SectionHeader("Wake phrase", openSection == "Wake phrase") { openSection = if (openSection == "Wake phrase") "" else "Wake phrase" }
+        if (openSection == "Wake phrase") {
         OutlinedTextField(
             value = wakePhrases, onValueChange = { wakePhrases = it; saved = false },
             label = { Text("Phrases, separated by commas") }, modifier = Modifier.fillMaxWidth()
@@ -345,20 +389,10 @@ fun SettingsScreen(
             color = Color.Gray, fontSize = 12.sp
         )
 
-        Spacer(Modifier.height(10.dp))
-        Button(onClick = {
-            prefs.apiKey = apiKey
-            provKeys.forEach { (id, v) -> prefs.setProviderKey(id, v) }
-            prefs.model = model
-            prefs.githubToken = githubToken
-            prefs.wakePhrases = wakePhrases
-            prefs.countryCode = countryCode
-            prefs.confirmBeforeSend = confirmSend
-            prefs.speakReplies = speakReplies
-            saved = true
-        }) { Text(if (saved) "Saved" else "Save") }
 
-        Heading("Permissions")
+        }
+        SectionHeader("Permissions", openSection == "Permissions") { openSection = if (openSection == "Permissions") "" else "Permissions" }
+        if (openSection == "Permissions") {
         PermRow("Accessibility service", accessibilityOn) { onRequest(PermissionManager.ACCESSIBILITY) }
         PermRow("Microphone", micOn) { onRequest(Manifest.permission.RECORD_AUDIO) }
         PermRow(
@@ -367,6 +401,7 @@ fun SettingsScreen(
         PermRow("Contacts", contactsOn) { onRequest(Manifest.permission.READ_CONTACTS) }
         PermRow("Phone calls", callsOn) { onRequest(Manifest.permission.CALL_PHONE) }
         PermRow("Display over other apps (helps wake open BRO)", overlayOn) { onRequest(PermissionManager.OVERLAY) }
+        }
         Spacer(Modifier.height(24.dp))
     }
 }
@@ -376,6 +411,24 @@ private fun Heading(text: String) {
     Spacer(Modifier.height(16.dp))
     Text(text, color = BroColors.Accent, fontSize = 16.sp, fontWeight = FontWeight.Bold)
     Spacer(Modifier.height(6.dp))
+}
+
+@Composable
+private fun SectionHeader(text: String, open: Boolean, onClick: () -> Unit) {
+    Spacer(Modifier.height(10.dp))
+    Row(
+        Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color(0x3308162B))
+            .clickable { onClick() }
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(text, color = BroColors.Accent, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+        Text(if (open) "\u25B2" else "\u25BC", color = BroColors.Accent, fontSize = 14.sp)
+    }
+    Spacer(Modifier.height(4.dp))
 }
 
 @Composable

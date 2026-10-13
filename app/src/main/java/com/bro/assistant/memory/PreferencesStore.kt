@@ -150,8 +150,13 @@ class PreferencesStore(context: Context) {
         set(value) { sp.edit().putString("call_voice", value.trim()).apply() }
     /** Reminders ring like an incoming BRO call inside the app (you can answer and talk). */
     var reminderRings: Boolean
-        get() = sp.getBoolean("reminder_rings", false)
+        get() = sp.getBoolean("reminder_rings", true)
         set(value) { sp.edit().putBoolean("reminder_rings", value).apply() }
+
+    /** "call me" phones through Twilio (paid, one-way) only when this is on; otherwise it rings in the app (free, two-way). */
+    var callViaTwilio: Boolean
+        get() = sp.getBoolean("call_via_twilio", false)
+        set(value) { sp.edit().putBoolean("call_via_twilio", value).apply() }
 
     var callForReminders: Boolean
         get() = sp.getBoolean("call_for_reminders", false)
