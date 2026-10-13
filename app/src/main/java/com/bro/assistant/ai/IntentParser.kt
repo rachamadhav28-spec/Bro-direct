@@ -39,7 +39,7 @@ class IntentParser(private val memory: SessionMemory, private val prefs: Prefere
             memory.lastCode?.let { append("Code you wrote earlier (edit this when the user asks for changes or fixes):\n```\n").append(it).append("\n```\n\n") }
             append("Recent conversation:\n").append(memory.historyText()).append("\n\nUser says: ").append(userText)
         }
-        return client.generate(CODE_PROMPT, context, json = false, skill = Skill.CODE).trim()
+        return client.generate(if (DesignGuide.isUi(userText)) CODE_PROMPT + "\n" + DesignGuide.GUIDE else CODE_PROMPT, context, json = false, skill = Skill.CODE).trim()
     }
 
     private fun parse(raw: String): AiPlan {

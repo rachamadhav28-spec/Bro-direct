@@ -1,5 +1,6 @@
 package com.bro.assistant
 
+import com.bro.assistant.ai.DesignGuide
 import com.bro.assistant.ai.GeminiClient
 import com.bro.assistant.ai.GitHubClient
 import com.bro.assistant.ai.GitHubException
@@ -168,6 +169,7 @@ class AppBuilder(private val prefs: PreferencesStore, private val gh: GitHubClie
             - Make the UI work on a phone screen: use fillMaxSize, verticalScroll where content may overflow, and
               safeDrawingPadding() or systemBarsPadding().
             - Use a dark theme with darkColorScheme() unless the user asks otherwise.
+            - ${DesignGuide.GUIDE.replace("\n", "\n            ")}
             - Use as many files as the app needs (at most 20), each under 800 lines. No placeholders, no TODO, no "...".
             - Double-check types, imports and braces before answering.
         """

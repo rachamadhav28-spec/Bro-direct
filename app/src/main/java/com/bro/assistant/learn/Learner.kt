@@ -23,7 +23,8 @@ object Learner {
         "REST API design, HTTP errors and retries", "Sorting, searching and Big-O", "Dynamic programming patterns",
         "Graph algorithms: BFS, DFS, Dijkstra", "Object-oriented design patterns", "Reading stack traces and debugging method",
         "Unit testing and test design", "Clean code and refactoring", "Java collections and streams", "C++ STL containers and pointers",
-        "Security basics: input validation, secrets, injection", "Performance profiling and optimisation", "Regular expressions", "Recursion, trees and linked lists"
+        "Security basics: input validation, secrets, injection", "Performance profiling and optimisation", "Regular expressions", "Recursion, trees and linked lists",
+        "UI design: hierarchy, spacing, typography and colour contrast", "UX: user flows, empty/error states, accessibility and microcopy", "Mobile UI patterns for Android Material 3"
     )
 
     private const val LESSON_SYSTEM =

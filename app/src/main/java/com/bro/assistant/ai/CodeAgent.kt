@@ -35,10 +35,11 @@ object CodeAgent {
         BroTaskService.update(c, "Coding 1 of 3: planning")
         val plan = try { ai.generate(PLAN, notes + request, json = false, timeoutMs = 90000, skill = Skill.REASON).trim() } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { "" }
         BroTaskService.update(c, "Coding 2 of 3: writing the code")
-        val draft = ai.generate(WRITE, notes + "Request:\n$request\n\nPlan:\n$plan", json = false, timeoutMs = 120000, skill = Skill.CODE).trim()
+        val ui = DesignGuide.isUi(request)
+        val draft = ai.generate(if (ui) WRITE + "\n" + DesignGuide.GUIDE else WRITE, notes + "Request:\n$request\n\nPlan:\n$plan", json = false, timeoutMs = 120000, skill = Skill.CODE).trim()
         BroTaskService.update(c, "Coding 3 of 3: reviewing for bugs")
         return try {
-            val reviewed = ai.generate(REVIEW, "Request:\n$request\n\nCode:\n$draft", json = false, timeoutMs = 120000, skill = Skill.CODE).trim()
+            val reviewed = ai.generate(if (ui) REVIEW + " " + DesignGuide.CRITIQUE else REVIEW, "Request:\n$request\n\nCode:\n$draft", json = false, timeoutMs = 120000, skill = Skill.CODE).trim()
             if (reviewed.contains("```")) reviewed else draft
         } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { draft }
     }
