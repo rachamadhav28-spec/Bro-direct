@@ -46,6 +46,13 @@ class GitHubCommands(private val context: Context, private val prefs: Preference
     private val mergePr = rx("^merge\\s+(?:pr|pull\\s+request)\\s+#?(\\d+)\\s+$inRepo$")
     private val editFile = rx("^edit\\s+(?:file\\s+)?(\\S+)\\s+$inRepo\\s*[:\\-]\\s*(.+)$")
 
+    private val renameRepo = rx("^rename\\s+repo(?:sitory)?\\s+$repoRef\\s+to\\s+([\\w.-]+)$")
+    private val deleteRepo = rx("^delete\\s+repo(?:sitory)?\\s+$repoRef$")
+    private val renameBranch = rx("^rename\\s+branch\\s+([\\w./-]+)\\s+to\\s+([\\w./-]+)\\s+$inRepo$")
+    private val deleteBranch = rx("^delete\\s+branch\\s+([\\w./-]+)\\s+$inRepo$")
+    private val renameFile = rx("^(?:rename|move)\\s+(?:file\\s+)?(\\S+)\\s+to\\s+(\\S+)\\s+$inRepo$")
+    private val deleteFile = rx("^delete\\s+file\\s+(\\S+)\\s+$inRepo$")
+
     private val createApp = Regex(
         "^(?:create|build|make|generate|develop)\\s+(?:me\\s+)?(?:an?\\s+|the\\s+)?(?:[\\w-]+\\s+){0,3}?(?:android\\s+app|apk)\\b" +
             "(?:\\s+(?:in|into)\\s+(?:repo\\s+)?([\\w.-]+))?\\s*(?:that|which|for|of|to|called|named|:|-)?\\s*(.+)$",
@@ -64,7 +71,8 @@ class GitHubCommands(private val context: Context, private val prefs: Preference
         val text = TeluguNormalizer.clause(TeluguNormalizer.preprocess(rawText))
             .trim().trimEnd('.', '!', '?')
         val isGithub = listOf(listRepos, createRepo, listFiles, readFile, issue, push, createApp, buildStatus, whyFailed, fixBuild, downloadApk,
-            listIssues, commentIssue, listCommits, listPulls, newBranch, openPr, mergePr, editFile).any { it.matches(text) }
+            listIssues, commentIssue, listCommits, listPulls, newBranch, openPr, mergePr, editFile,
+            renameRepo, deleteRepo, renameBranch, deleteBranch, renameFile, deleteFile).any { it.matches(text) }
         if (!isGithub) return null
         if (prefs.githubToken.isBlank()) {
             return "I need your GitHub token first. Add it in Menu, Settings, GitHub token."
@@ -184,6 +192,36 @@ class GitHubCommands(private val context: Context, private val prefs: Preference
         }
         editFile.matchEntire(text)?.let { m ->
             return editWithAi(m.groupValues[1], m.groupValues[2], m.groupValues[3].trim(), confirm)
+        }
+        renameRepo.matchEntire(text)?.let { m ->
+            if (!confirm("Rename repo \"${m.groupValues[1]}\" to \"${m.groupValues[2]}\"? Old links redirect, but check apps that use the old name.")) return "Okay, I didn't rename it."
+            return "Renamed: " + client.renameRepo(m.groupValues[1], m.groupValues[2])
+        }
+        deleteRepo.matchEntire(text)?.let { m ->
+            if (!confirm("DELETE repo \"${m.groupValues[1]}\" forever? Its code, history and builds are lost and this cannot be undone.")) return "Okay, I didn't delete it."
+            if (!confirm("Last check: really delete \"${m.groupValues[1]}\"?")) return "Okay, I didn't delete it."
+            client.deleteRepo(m.groupValues[1])
+            return "Deleted ${m.groupValues[1]}."
+        }
+        renameBranch.matchEntire(text)?.let { m ->
+            if (!confirm("Rename branch ${m.groupValues[1]} to ${m.groupValues[2]} in ${m.groupValues[3]}?")) return "Okay."
+            client.renameBranch(m.groupValues[3], m.groupValues[1], m.groupValues[2])
+            return "Renamed branch ${m.groupValues[1]} to ${m.groupValues[2]}."
+        }
+        deleteBranch.matchEntire(text)?.let { m ->
+            if (!confirm("Delete branch ${m.groupValues[1]} in ${m.groupValues[2]}?")) return "Okay, I didn't delete it."
+            client.deleteBranch(m.groupValues[2], m.groupValues[1])
+            return "Deleted branch ${m.groupValues[1]}."
+        }
+        renameFile.matchEntire(text)?.let { m ->
+            if (!confirm("Rename ${m.groupValues[1]} to ${m.groupValues[2]} in ${m.groupValues[3]}?")) return "Okay."
+            client.renameFile(m.groupValues[3], m.groupValues[1], m.groupValues[2])
+            return "Renamed ${m.groupValues[1]} to ${m.groupValues[2]}."
+        }
+        deleteFile.matchEntire(text)?.let { m ->
+            if (!confirm("Delete file ${m.groupValues[1]} from ${m.groupValues[2]}?")) return "Okay, I didn't delete it."
+            client.deleteFile(m.groupValues[2], m.groupValues[1])
+            return "Deleted ${m.groupValues[1]}."
         }
         return "I didn't understand that GitHub command."
     }

@@ -72,6 +72,25 @@ fun SettingsScreen(
                 .forEach { put(it.id, prefs.providerKey(it.id)) }
         }
     }
+    var backupPw by remember { mutableStateOf("") }
+    var backupMsg by remember { mutableStateOf("") }
+    val exportLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/octet-stream")
+    ) { uri ->
+        if (uri != null) backupMsg = try {
+            val bytes = com.bro.assistant.security.Backup.export(ctx, backupPw)
+            ctx.contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
+            "Backup saved. Keep that file safe and remember the password."
+        } catch (e: Exception) { "Backup failed: ${e.message}" }
+    }
+    val importLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) backupMsg = try {
+            val bytes = ctx.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: ByteArray(0)
+            com.bro.assistant.security.Backup.restore(ctx, backupPw, bytes)
+        } catch (e: Exception) { "Restore failed: ${e.message}" }
+    }
     var saved by remember { mutableStateOf(false) }
     var openSection by remember { mutableStateOf("") }
     val wakeOn = remember(tick) { prefs.wakeEnabled }
@@ -350,6 +369,25 @@ fun SettingsScreen(
         }
         if (callMsg.isNotEmpty()) Text(callMsg, color = Color.LightGray, fontSize = 12.sp)
 
+        }
+        SectionHeader("Backup and restore", openSection == "Backup and restore") { openSection = if (openSection == "Backup and restore") "" else "Backup and restore" }
+        if (openSection == "Backup and restore") {
+            Text("Saves all your keys and settings in one file, locked with a password. Delete the app, install the new one, then restore the file and everything comes back.", color = Color.Gray, fontSize = 12.sp)
+            OutlinedTextField(
+                value = backupPw, onValueChange = { backupPw = it }, label = { Text("Backup password (min 6 characters)") },
+                singleLine = true, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth()
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = {
+                    if (backupPw.length < 6) backupMsg = "Type a password with at least 6 characters first."
+                    else exportLauncher.launch("BRO-backup.brobk")
+                }) { Text("Back up") }
+                OutlinedButton(onClick = {
+                    if (backupPw.isEmpty()) backupMsg = "Type the backup's password first."
+                    else importLauncher.launch(arrayOf("*/*"))
+                }) { Text("Restore") }
+            }
+            if (backupMsg.isNotEmpty()) Text(backupMsg, color = Color.LightGray, fontSize = 12.sp)
         }
         SectionHeader("BRO learns", openSection == "BRO learns") { openSection = if (openSection == "BRO learns") "" else "BRO learns" }
         if (openSection == "BRO learns") {

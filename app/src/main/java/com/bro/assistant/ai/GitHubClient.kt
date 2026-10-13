@@ -228,4 +228,30 @@ class GitHubClient(private val prefs: PreferencesStore) {
 
     suspend fun mergePull(repo: String, number: Int): String =
         JSONObject(call("PUT", "/repos/${fullName(repo)}/pulls/$number/merge", JSONObject())).optString("message", "Merged")
+
+    suspend fun renameRepo(repo: String, newName: String): String =
+        JSONObject(call("PATCH", "/repos/${fullName(repo)}", JSONObject().put("name", newName))).getString("html_url")
+
+    suspend fun deleteRepo(repo: String) { call("DELETE", "/repos/${fullName(repo)}") }
+
+    suspend fun renameBranch(repo: String, old: String, new: String) {
+        call("POST", "/repos/${fullName(repo)}/branches/$old/rename", JSONObject().put("new_name", new))
+    }
+
+    suspend fun deleteBranch(repo: String, name: String) { call("DELETE", "/repos/${fullName(repo)}/git/refs/heads/$name") }
+
+    /** Moves a file: creates it at the new path with the same content, then removes the old one. */
+    suspend fun renameFile(repo: String, old: String, new: String) {
+        val full = fullName(repo)
+        val o = JSONObject(call("GET", "/repos/$full/contents/${old.trim('/')}"))
+        val content = o.getString("content").replace("\n", "")
+        call("PUT", "/repos/$full/contents/${new.trim('/')}", JSONObject().put("message", "Rename $old to $new via BRO").put("content", content))
+        call("DELETE", "/repos/$full/contents/${old.trim('/')}", JSONObject().put("message", "Rename $old to $new via BRO").put("sha", o.getString("sha")))
+    }
+
+    suspend fun deleteFile(repo: String, path: String) {
+        val full = fullName(repo)
+        val sha = JSONObject(call("GET", "/repos/$full/contents/${path.trim('/')}")).getString("sha")
+        call("DELETE", "/repos/$full/contents/${path.trim('/')}", JSONObject().put("message", "Delete $path via BRO").put("sha", sha))
+    }
 }
