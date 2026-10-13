@@ -32,7 +32,9 @@ object CallMe {
 
     private fun xml(s: String) = s.replace("&", "and").replace("<", " ").replace(">", " ").replace("\"", "'")
 
-    /** Returns null when the call was placed, or a short error message. */
+    private const val TRIAL_TEMPLATE = "https://webhooks.twilio.com/v1/Voice/Template/voice_text_to_speech"
+
+    /** Returns null when the call was placed, or a short message (an error, or a note about trial limits). */
     suspend fun place(c: Context, text: String): String? = withContext(Dispatchers.IO) {
         val p = PreferencesStore(c)
         if (!configured(p)) return@withContext "Call settings are not filled in yet (Settings, BRO calls me)."
@@ -40,32 +42,43 @@ object CallMe {
         val sid = p.twilioSid.trim()
         val voice = p.callVoice.trim().let { if (it.isNotEmpty()) " voice=\"${xml(it)}\"" else "" }
         val twiml = "<Response><Say language=\"en-IN\"$voice>${xml(text.take(600))}</Say><Pause length=\"1\"/><Say language=\"en-IN\"$voice>${xml(text.take(600))}</Say></Response>"
-        val body = "To=" + URLEncoder.encode(e164(p.myNumber, p.countryCode), "UTF-8") +
-            "&From=" + URLEncoder.encode(e164(p.twilioFrom, ""), "UTF-8") +
-            "&Twiml=" + URLEncoder.encode(twiml, "UTF-8")
-        var conn: HttpURLConnection? = null
+        val to = URLEncoder.encode(e164(p.myNumber, p.countryCode), "UTF-8")
+        val from = URLEncoder.encode(e164(p.twilioFrom, ""), "UTF-8")
+
+        // returns the HTTP code and the error text (empty when it worked)
+        fun send(body: String): Pair<Int, String> {
+            var conn: HttpURLConnection? = null
+            return try {
+                conn = URL("https://api.twilio.com/2010-04-01/Accounts/$sid/Calls.json").openConnection() as HttpURLConnection
+                conn.requestMethod = "POST"
+                conn.connectTimeout = 15000; conn.readTimeout = 20000; conn.doOutput = true
+                conn.setRequestProperty("Authorization", "Basic " + Base64.encodeToString("$sid:$token".toByteArray(), Base64.NO_WRAP))
+                conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
+                conn.outputStream.use { it.write(body.toByteArray()) }
+                val code = conn.responseCode
+                if (code in 200..299) code to "" else code to (try { conn.errorStream?.bufferedReader()?.readText().orEmpty() } catch (_: Exception) { "" })
+            } finally { conn?.disconnect() }
+        }
+        fun apiMessage(err: String) = Regex("\"message\"\\s*:\\s*\"([^\"]{1,200})").find(err)?.groupValues?.get(1)
+
         try {
-            conn = URL("https://api.twilio.com/2010-04-01/Accounts/$sid/Calls.json").openConnection() as HttpURLConnection
-            conn.requestMethod = "POST"
-            conn.connectTimeout = 15000; conn.readTimeout = 20000; conn.doOutput = true
-            conn.setRequestProperty("Authorization", "Basic " + Base64.encodeToString("$sid:$token".toByteArray(), Base64.NO_WRAP))
-            conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
-            conn.outputStream.use { it.write(body.toByteArray()) }
-            val code = conn.responseCode
-            if (code in 200..299) null
-            else {
-                val err = try { conn.errorStream?.bufferedReader()?.readText().orEmpty() } catch (_: Exception) { "" }
-                val msg = Regex("\"message\"\\s*:\\s*\"([^\"]{1,200})").find(err)?.groupValues?.get(1)
-                when (code) {
-                    401 -> "Twilio refused the Account SID or token."
-                    else -> "Twilio could not place the call ($code)" + (if (msg != null) ": $msg" else ".")
-                }
+            var (code, err) = send("To=$to&From=$from&Twiml=" + URLEncoder.encode(twiml, "UTF-8"))
+            if (code == 400 && err.contains("trial", ignoreCase = true)) {
+                // Trial accounts may not send their own words, only Twilio's ready-made voice template.
+                val r = send("To=$to&From=$from&Url=" + URLEncoder.encode(TRIAL_TEMPLATE, "UTF-8"))
+                code = r.first; err = r.second
+                if (code in 200..299) return@withContext "Call placed. Your Twilio account is a trial, so the call can only play Twilio's own sample message, not BRO's words. Upgrade the Twilio account to let BRO speak its own message."
+            }
+            when {
+                code in 200..299 -> null
+                code == 401 -> "Twilio refused the Account SID or token."
+                else -> "Twilio could not place the call ($code)" + (apiMessage(err)?.let { ": $it" } ?: ".")
             }
         } catch (e: java.net.UnknownHostException) {
             "No internet connection."
         } catch (e: Exception) {
             "The call failed: ${e.message ?: e.javaClass.simpleName}"
-        } finally { conn?.disconnect() }
+        }
     }
 
     /** Fire-and-forget, used when a reminder goes off. */
