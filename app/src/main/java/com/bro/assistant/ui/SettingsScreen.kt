@@ -401,6 +401,19 @@ fun SettingsScreen(
                 com.bro.assistant.learn.LearnJob.schedule(ctx)
             }
             Text("BRO writes study notes on coding, Telugu and Tenglish using your AI keys or the offline brain, and reads them before answering. It only runs when the phone is idle. Notes saved: $notes", color = Color.Gray, fontSize = 12.sp)
+            val studyRunning = com.bro.assistant.learn.StudyBus.running
+            if (studyRunning) {
+                Text("Studying non-stop: ${com.bro.assistant.learn.StudyBus.current} (learned ${com.bro.assistant.learn.StudyBus.learnedThisRun} this run)", color = Color.LightGray, fontSize = 12.sp)
+                Button(onClick = { com.bro.assistant.learn.StudyService.stop(ctx) }) { Text("Stop studying") }
+            } else {
+                Button(onClick = { com.bro.assistant.learn.StudyService.start(ctx) }) { Text("Study non-stop (24/7)") }
+                Text("Keeps learning in the background until you press Stop. Uses internet and battery; it stops by itself when the battery is below 15%.", color = Color.Gray, fontSize = 12.sp)
+            }
+            val runs = remember(tick, studyRunning) { com.bro.assistant.learn.StudyLog.recent(ctx, 5) }
+            if (runs.isNotEmpty()) {
+                Text("After studying, BRO saved notes and used them in answers. Recent runs:", color = Color.Gray, fontSize = 12.sp)
+                runs.forEach { Text("• " + java.text.SimpleDateFormat("d MMM HH:mm", java.util.Locale.US).format(java.util.Date(it.time)) + ": " + it.topics.joinToString(", "), color = Color.LightGray, fontSize = 12.sp) }
+            }
             Button(enabled = !learning, onClick = {
                 learning = true; learnMsg = "Studying..."
                 learnScope.launch {

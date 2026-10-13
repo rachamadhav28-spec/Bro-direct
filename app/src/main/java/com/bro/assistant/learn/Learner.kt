@@ -27,6 +27,9 @@ object Learner {
         "UI design: hierarchy, spacing, typography and colour contrast", "UX: user flows, empty/error states, accessibility and microcopy", "Mobile UI patterns for Android Material 3"
     )
 
+    /** True while some topic has not been studied in the last 45 days. */
+    fun hasFresh(c: Context): Boolean = codeTopics.any { !LearnStore.hasTopic(c, it, 45) }
+
     private const val LESSON_SYSTEM =
         "You write a private study note that a coding assistant reads before answering. Be exact and compact: at most 170 words. " +
             "Include the key ideas, ONE short correct code snippet in a fenced block, and 2 common mistakes. No greeting, no intro."

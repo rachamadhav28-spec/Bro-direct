@@ -15,14 +15,28 @@ object LearnCommands {
     private val showRx = Regex("^(?:what\\s+(?:have\\s+you|did\\s+you)\\s+learn(?:ed|t)|show\\s+(?:your\\s+)?(?:lessons|notes|learning)|what\\s+do\\s+you\\s+know\\s+about\\s+coding)[?.!\\s]*$", I)
     private val forgetRx = Regex("^(?:forget|delete|clear)\\s+(?:all\\s+)?(?:your\\s+)?(?:lessons|study\\s+notes|what\\s+you\\s+learn(?:ed|t))[.!\\s]*$", I)
 
+    private val startNon = Regex("^(?:start|begin|keep)\\s+(?:studying|learning)(?:\\s+(?:non[- ]?stop|24/7|all\\s+the\\s+time|always))?[.!\\s]*$|^study\\s+(?:non[- ]?stop|24/7)[.!\\s]*$", I)
+    private val stopNon = Regex("^(?:stop|end|quit|cancel)\\s+(?:studying|learning|study)[.!\\s]*$", I)
+
     suspend fun handle(c: Context, prefs: PreferencesStore, raw: String): String? {
         val t = raw.trim()
+        if (stopNon.matches(t)) {
+            return if (StudyBus.running) { StudyService.stop(c); "Okay, I will stop studying. I'll send you a short report of what I learned." } else "I'm not studying right now."
+        }
+        if (startNon.matches(t)) {
+            if (!prefs.hasBrain()) return "I need an AI key or the offline brain to study. Add one in Settings first."
+            if (StudyBus.running) return "I'm already studying. Say \"stop studying\" to stop."
+            StudyService.start(c)
+            return "Okay, I'm studying non-stop in the background. A notification has a Stop button, or say \"stop studying\". It uses internet and battery."
+        }
         if (forgetRx.matches(t)) { LearnStore.clear(c); return "Done. I forgot all my study notes." }
         if (showRx.matches(t)) {
             val notes = LearnStore.all(c)
             if (notes.isEmpty()) return "I haven't studied anything yet. Say \"learn coding\" and I'll start. I also study by myself at night when the phone is idle."
             val f = SimpleDateFormat("d MMM", Locale.US)
-            return "I have ${notes.size} study notes:\n" + notes.takeLast(25).reversed().joinToString("\n") { "• ${it.topic} (${f.format(Date(it.time))})" }
+            val runs = StudyLog.recent(c, 5)
+            val ran = if (runs.isEmpty()) "" else "Recent study runs:\n" + runs.joinToString("\n") { "• " + SimpleDateFormat("d MMM HH:mm", Locale.US).format(Date(it.time)) + ": " + it.topics.joinToString(", ") } + "\n\n"
+            return ran + "I have ${notes.size} study notes:\n" + notes.takeLast(25).reversed().joinToString("\n") { "• ${it.topic} (${f.format(Date(it.time))})" }
         }
         val isCoding = coding.matches(t)
         val m = if (isCoding) null else topic.find(t)

@@ -120,6 +120,10 @@ class PreferencesStore(context: Context) {
     var learnNightly: Boolean
         get() = sp.getBoolean("learn_nightly", true)
         set(value) { sp.edit().putBoolean("learn_nightly", value).apply() }
+    /** Study non-stop until stopped (restarts after the phone restarts). */
+    var studyNonStop: Boolean
+        get() = sp.getBoolean("study_nonstop", false)
+        set(value) { sp.edit().putBoolean("study_nonstop", value).apply() }
     var lastLearned: Long
         get() = sp.getLong("last_learned", 0L)
         set(value) { sp.edit().putLong("last_learned", value).apply() }

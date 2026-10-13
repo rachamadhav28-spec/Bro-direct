@@ -112,6 +112,15 @@
             android:exported="false" />
 
         <service
+            android:name=".learn.StudyService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Studies coding topics in the background until the user presses Stop" />
+        </service>
+
+        <service
             android:name=".learn.LearnJobService"
             android:exported="false"
             android:permission="android.permission.BIND_JOB_SERVICE" />

@@ -40,6 +40,7 @@ class WatchReceiver : BroadcastReceiver() {
             Intent.ACTION_BOOT_COMPLETED -> {
                 WatchScheduler.rescheduleAll(context.applicationContext)
                 try { com.bro.assistant.learn.LearnJob.schedule(context.applicationContext) } catch (_: Exception) {}
+                try { if (com.bro.assistant.memory.PreferencesStore(context.applicationContext).studyNonStop) com.bro.assistant.learn.StudyService.start(context.applicationContext) } catch (_: Exception) {}
                 try { com.bro.assistant.features.Reminders.rescheduleAll(context.applicationContext) } catch (_: Exception) {}
                 try { if (com.bro.assistant.memory.PreferencesStore(context.applicationContext).proactiveEnabled) com.bro.assistant.proactive.Proactive.schedule(context.applicationContext) } catch (_: Exception) {}
                 try { if (com.bro.assistant.memory.PreferencesStore(context.applicationContext).bubbleEnabled) com.bro.assistant.BubbleService.start(context.applicationContext) } catch (_: Exception) {}
