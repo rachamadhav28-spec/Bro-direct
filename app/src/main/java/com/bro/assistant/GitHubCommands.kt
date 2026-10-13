@@ -23,7 +23,7 @@ class GitHubCommands(private val context: Context, private val prefs: Preference
     private fun rx(p: String) = Regex(p, RegexOption.IGNORE_CASE)
     private val repoRef = "([\\w.-]+(?:/[\\w.-]+)?)"
 
-    private val listRepos = rx("^(?:list|show)\\s+(?:all\\s+)?(?:my\\s+)?(?:github\\s+)?repo(?:sitorie)?s$")
+    private val listRepos = rx("^(?:please\\s+)?(?:list|show|check|see|view|open|get|what\\s+are)\\s+(?:all\\s+)?(?:my\\s+|the\\s+)?(?:github\\s+)?repo(?:sitorie)?s?(?:\\s+(?:on|in|from)\\s+github)?$")
     private val createRepo = rx(
         "^create\\s+(?:a\\s+)?(?:new\\s+)?(private\\s+|public\\s+)?(?:github\\s+)?repo(?:sitory)?\\s+(?:called\\s+|named\\s+)?([\\w.-]+)$"
     )
