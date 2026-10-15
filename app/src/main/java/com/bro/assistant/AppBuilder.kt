@@ -129,7 +129,7 @@ class AppBuilder(private val prefs: PreferencesStore, private val gh: GitHubClie
         val raw = gemini.generate(
             FIX_PROMPT, "Build errors:\n$errors\n\nCurrent files:\n$current", json = true, timeoutMs = 150000
         )
-        val files = readFiles(parseJson(raw))
+        val files = readFiles(parseJson(raw), requireMain = false)
         if (!confirm("Push a fix for ${files.joinToString { it.path.substringAfterLast('/') }} in $repo?")) {
             return "Okay, I didn't push it."
         }
@@ -145,7 +145,7 @@ class AppBuilder(private val prefs: PreferencesStore, private val gh: GitHubClie
         return JSONObject(if (a >= 0 && b > a) t.substring(a, b + 1) else t)
     }
 
-    private fun readFiles(obj: JSONObject): List<GenFile> {
+    private fun readFiles(obj: JSONObject, requireMain: Boolean = true): List<GenFile> {
         val arr = obj.optJSONArray("files") ?: throw IllegalStateException("The AI didn't return any files. Try again.")
         val out = mutableListOf<GenFile>()
         for (i in 0 until arr.length()) {
@@ -159,7 +159,7 @@ class AppBuilder(private val prefs: PreferencesStore, private val gh: GitHubClie
             out.add(GenFile(path, content))
         }
         if (out.isEmpty() || out.size > 25) throw IllegalStateException("The AI returned an unusable file list. Try again.")
-        if (out.none { it.path.endsWith("/MainActivity.kt") }) {
+        if (requireMain && out.none { it.path.endsWith("/MainActivity.kt") }) {
             throw IllegalStateException("The AI forgot MainActivity.kt. Try again.")
         }
         return out
