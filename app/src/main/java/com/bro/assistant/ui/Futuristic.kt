@@ -40,7 +40,7 @@ fun FuturisticBackground(modifier: Modifier = Modifier, content: @Composable () 
         Canvas(Modifier.fillMaxSize()) {
             val w = size.width
             val h = size.height
-            drawRect(Brush.verticalGradient(listOf(Color(0xFF02040A), Color(0xFF07122A), Color(0xFF0A0620))))
+            drawRect(Brush.verticalGradient(listOf(Color(0xFF000000), Color(0xFF000000), Color(0xFF050308))))
 
             // drifting grid
             val cell = 46.dp.toPx()

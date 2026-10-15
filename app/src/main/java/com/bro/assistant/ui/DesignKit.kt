@@ -53,7 +53,7 @@ import com.bro.assistant.ui.theme.BroColors
 /** Quiet backdrop: a soft gradient and one glow. (The animated HUD stays on the lock and call screens.) */
 @Composable
 fun CalmBackground(content: @Composable () -> Unit) {
-    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF060B16), Color(0xFF0A1226))))) {
+    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF000000), Color(0xFF050505))))) {
         Canvas(Modifier.fillMaxSize()) {
             drawCircle(
                 Brush.radialGradient(listOf(NeonViolet.copy(alpha = 0.16f), Color.Transparent), center = Offset(size.width * 0.5f, 0f), radius = size.width * 0.9f),

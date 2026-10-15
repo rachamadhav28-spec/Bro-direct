@@ -13,11 +13,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 object BroColors {
-    val Background = Color(0xFF05080F)
-    val Panel = Color(0xFF111A2B)
+    val Background = Color(0xFF000000)
+    val Panel = Color(0xFF111111)
     val Accent: Color get() = ThemeState.primary
-    val UserBubble = Color(0xFF16385A)
-    val BroBubble = Color(0xFF151F33)
+    val UserBubble = Color(0xFF12303F)
+    val BroBubble = Color(0xFF161616)
     val Listening = Color(0xFF3DDC84)
     val Thinking = Color(0xFFB388FF)
     val Executing = Color(0xFFFFA726)
@@ -27,8 +27,8 @@ object BroColors {
     // Text: both pass 4.5:1 contrast on the dark background
     val TextPrimary = Color(0xFFF2F5FA)
     val TextSecondary = Color(0xFF9AA7BD)
-    val Outline = Color(0xFF2A3750)
-    val Surface2 = Color(0xFF0D1524)
+    val Outline = Color(0xFF2A2A2A)
+    val Surface2 = Color(0xFF0A0A0A)
 }
 
 /** One spacing scale (8dp grid) used everywhere. */
