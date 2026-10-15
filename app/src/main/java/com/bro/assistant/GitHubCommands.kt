@@ -63,16 +63,41 @@ class GitHubCommands(private val context: Context, private val prefs: Preference
     private val fixBuild = rx("^fix\\s+(?:the\\s+)?build\\s+(?:of|for|in)\\s+$repoRef$")
     private val downloadApk = rx("^(?:download|get)\\s+(?:the\\s+)?apk\\s+(?:of|for|from)\\s+$repoRef$")
 
+    private val all get() = listOf(listRepos, createRepo, listFiles, readFile, issue, push, createApp, buildStatus, whyFailed, fixBuild, downloadApk,
+        listIssues, commentIssue, listCommits, listPulls, newBranch, openPr, mergePr, editFile,
+        renameRepo, deleteRepo, renameBranch, deleteBranch, renameFile, deleteFile)
+
+    private val gitWords = rx(".*\\b(?:github|git\\s*hub|repo|repos|repository|repositories|branch|branches|commit|commits|pull\\s*request|prs?|issue|issues|workflow|actions|apk|merge)\\b.*")
+    private val buildVerb = rx(".*\\b(?:build|make|create|generate|develop|write|code|design)\\b.*")
+    private val appWord = rx(".*\\b(?:app|application|apk|android)\\b.*")
+    private val ai = GeminiClient(prefs)
+
+    private fun matchesAny(t: String) = all.any { it.matches(t) }
+
+    /** Free-form wording that mentions GitHub or app building: the AI rewrites it as one command BRO knows. */
+    private suspend fun normalize(raw: String): String? {
+        if (!prefs.hasBrain() || prefs.githubToken.isBlank()) return null
+        if (!(gitWords.matches(raw) || (buildVerb.matches(raw) && appWord.matches(raw)))) return null
+        return try {
+            val out = ai.generate(NORMALIZE_PROMPT, "Message: $raw", json = true, timeoutMs = 25000)
+            val cmd = org.json.JSONObject(out.trim().removePrefix("```json").removePrefix("```").removeSuffix("```").trim()).optString("command").trim()
+            if (cmd.isBlank() || cmd.equals("none", true)) null else cmd.trimEnd('.', '!', '?')
+        } catch (e: Exception) { null }
+    }
+
     suspend fun tryHandle(
         rawText: String,
         lastCode: String?,
         confirm: suspend (String) -> Boolean
     ): String? {
-        val text = TeluguNormalizer.clause(TeluguNormalizer.preprocess(rawText))
+        var text = TeluguNormalizer.clause(TeluguNormalizer.preprocess(rawText))
             .trim().trimEnd('.', '!', '?')
-        val isGithub = listOf(listRepos, createRepo, listFiles, readFile, issue, push, createApp, buildStatus, whyFailed, fixBuild, downloadApk,
-            listIssues, commentIssue, listCommits, listPulls, newBranch, openPr, mergePr, editFile,
-            renameRepo, deleteRepo, renameBranch, deleteBranch, renameFile, deleteFile).any { it.matches(text) }
+        if (!matchesAny(text)) {
+            // any wording: short, long, casual, Telugu, Tenglish
+            val canon = normalize(rawText)
+            if (canon != null && matchesAny(canon)) text = canon
+        }
+        val isGithub = matchesAny(text)
         if (!isGithub) return null
         if (prefs.githubToken.isBlank()) {
             return "I need your GitHub token first. Add it in Menu, Settings, GitHub token."
@@ -259,5 +284,45 @@ class GitHubCommands(private val context: Context, private val prefs: Preference
         values.put(MediaStore.Downloads.IS_PENDING, 0)
         resolver.update(uri, values, null, null)
         return true
+    }
+
+    companion object {
+        private val NORMALIZE_PROMPT = """
+            You turn a user's message (English, Telugu or Tenglish; short or long; any wording) into ONE command for a GitHub helper.
+            Reply ONLY with JSON: {"command": "<command or none>"}.
+            The command must follow exactly one of these forms (replace the <...>; repo names without spaces; "me" = the user's own account):
+            list my repos
+            create a private repo <name>
+            create a public repo <name>
+            list files in <repo>
+            read file <path> in <repo>
+            edit <path> in <repo>: <what to change>
+            push code to <repo> as <filename>
+            create branch <name> in <repo>
+            list commits in <repo>
+            list pull requests in <repo>
+            open pr from <branch> to <branch> in <repo>: <title>
+            merge pr <number> in <repo>
+            create issue in <repo>: <title>
+            list issues in <repo>
+            comment on issue <number> in <repo>: <text>
+            check build of <repo>
+            why did build fail in <repo>
+            fix build of <repo>
+            download apk of <repo>
+            build an android app that <full description of the app and every feature the user listed>
+            rename repo <old> to <new>
+            rename branch <old> to <new> in <repo>
+            rename file <old> to <new> in <repo>
+            delete repo <name>
+            delete branch <name> in <repo>
+            delete file <path> in <repo>
+            Rules:
+            - If the user wants an app made (any wording, e.g. "I need an app for tracking expenses", "make me a quiz app with timer"), use the
+              "build an android app that ..." form and keep ALL their details.
+            - If they only say "check my repo/github" without a name, use "list my repos".
+            - If the message is not about GitHub, repos, builds or making an app, reply {"command": "none"}.
+            - Never invent repo names; if a needed name is missing, reply {"command": "list my repos"}.
+        """.trimIndent()
     }
 }
