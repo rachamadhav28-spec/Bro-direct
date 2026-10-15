@@ -13,6 +13,14 @@ object ThemeState {
     var secondary by mutableStateOf(Color(0xFF9D6BFF))
     var hud by mutableStateOf(true)
     var layout by mutableStateOf("auto")
+    /** Whole-app zoom: 0.5 to 1.5. Below 1 more fits on screen, above 1 everything is bigger. */
+    var zoom by mutableStateOf(1f)
+    private var store: PreferencesStore? = null
+    fun zoomBy(step: Float) {
+        zoom = (Math.round((zoom + step).coerceIn(0.5f, 1.5f) * 10f) / 10f)
+        store?.uiZoom = zoom
+    }
+    fun zoomReset() { zoom = 1f; store?.uiZoom = 1f }
 
     class Preset(val name: String, val a: Long, val b: Long)
     val presets = listOf(
@@ -25,7 +33,7 @@ object ThemeState {
     )
 
     fun load(p: PreferencesStore) {
-        primary = Color(p.accentPrimary.toInt()); secondary = Color(p.accentSecondary.toInt()); hud = p.hudAnimation; layout = p.layoutMode
+        primary = Color(p.accentPrimary.toInt()); secondary = Color(p.accentSecondary.toInt()); hud = p.hudAnimation; layout = p.layoutMode; store = p; zoom = p.uiZoom.coerceIn(0.5f, 1.5f)
     }
 
     fun set(p: PreferencesStore, a: Color, b: Color) {

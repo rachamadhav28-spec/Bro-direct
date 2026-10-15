@@ -113,6 +113,14 @@ fun ChatScreen(
                     DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }, containerColor = BroColors.Panel) {
                         DropdownMenuItem(text = { Text("History", color = BroColors.TextPrimary) }, onClick = { menuOpen = false; onOpenHistory() })
                         DropdownMenuItem(text = { Text("Settings", color = BroColors.TextPrimary) }, onClick = { menuOpen = false; onOpenSettings() })
+                        DropdownMenuItem(
+                            text = { Text("Zoom in  +", color = BroColors.TextPrimary) },
+                            onClick = { com.bro.assistant.ui.theme.ThemeState.zoomBy(0.1f) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Zoom out  \u2212   (${(com.bro.assistant.ui.theme.ThemeState.zoom * 100).toInt()}%)", color = BroColors.TextPrimary) },
+                            onClick = { com.bro.assistant.ui.theme.ThemeState.zoomBy(-0.1f) }
+                        )
                     }
                 }
             }

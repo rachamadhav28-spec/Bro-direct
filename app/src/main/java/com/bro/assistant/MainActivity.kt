@@ -263,13 +263,15 @@ class MainActivity : FragmentActivity() {
                             onOpen = { showHistory = false }
                         )
                     } else {
-                        val wide = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp
+                        // width in the app's own units: zooming out gives more room
+                        val wide = (androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp / com.bro.assistant.ui.theme.ThemeState.zoom).toInt()
                         val mode = com.bro.assistant.ui.theme.ThemeState.layout
-                        val desktop = mode == "desktop" || (mode == "auto" && wide >= 840)
+                        // two panes only when they really fit; otherwise the normal one-screen layout
+                        val desktop = (mode == "desktop" && wide >= 640) || (mode == "auto" && wide >= 840)
                         LaunchedEffect(desktop) { if (desktop) vm.refreshHistory() }
                         if (desktop) {
                             Row(Modifier.fillMaxSize().background(com.bro.assistant.ui.theme.BroColors.Background)) {
-                                Box(Modifier.width(if (wide >= 700) 300.dp else 190.dp).fillMaxHeight()) {
+                                Box(Modifier.width(if (wide >= 900) 300.dp else 240.dp).fillMaxHeight()) {
                                     HistoryScreen(vm = vm, onBack = {}, onOpen = {}, embedded = true)
                                 }
                                 Box(Modifier.width(1.dp).fillMaxHeight().background(com.bro.assistant.ui.theme.BroColors.Outline))

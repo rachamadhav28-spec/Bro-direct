@@ -52,6 +52,11 @@ private val BroShapes = Shapes(
 
 @Composable
 fun BroTheme(content: @Composable () -> Unit) {
+    val base = androidx.compose.ui.platform.LocalDensity.current
+    val z = ThemeState.zoom
+    androidx.compose.runtime.CompositionLocalProvider(
+        androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(base.density * z, base.fontScale * z)
+    ) {
     MaterialTheme(
         colorScheme = darkColorScheme(
             primary = BroColors.Accent,
@@ -70,4 +75,5 @@ fun BroTheme(content: @Composable () -> Unit) {
         shapes = BroShapes,
         content = content
     )
+    }
 }

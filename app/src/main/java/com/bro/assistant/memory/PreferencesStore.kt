@@ -131,6 +131,9 @@ class PreferencesStore(context: Context) {
     var layoutMode: String
         get() = sp.getString("layout_mode", "auto") ?: "auto"
         set(value) { sp.edit().putString("layout_mode", value).apply() }
+    var uiZoom: Float
+        get() = sp.getFloat("ui_zoom", 1f)
+        set(value) { sp.edit().putFloat("ui_zoom", value).apply() }
     var hudAnimation: Boolean
         get() = sp.getBoolean("hud_animation", true)
         set(value) { sp.edit().putBoolean("hud_animation", value).apply() }

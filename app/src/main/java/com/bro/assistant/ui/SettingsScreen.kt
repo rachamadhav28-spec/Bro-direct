@@ -400,6 +400,14 @@ fun SettingsScreen(
             SwitchRow("Moving HUD background (grid, particles, rings)", hudOn) { on ->
                 hudOn = on; com.bro.assistant.ui.theme.ThemeState.hud = on; prefs.hudAnimation = on
             }
+            Text("Zoom (${(com.bro.assistant.ui.theme.ThemeState.zoom * 100).toInt()}%)", color = BroColors.TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { com.bro.assistant.ui.theme.ThemeState.zoomBy(-0.1f) }) { Text("Zoom \u2212") }
+                OutlinedButton(onClick = { com.bro.assistant.ui.theme.ThemeState.zoomBy(0.1f) }) { Text("Zoom +") }
+                OutlinedButton(onClick = { com.bro.assistant.ui.theme.ThemeState.zoomReset() }) { Text("Reset") }
+            }
+            Text("Zoom out to fit more on the screen, zoom in to make everything bigger. Also in the chat menu (the three dots).", color = BroColors.TextSecondary, fontSize = 12.sp)
+            Spacer(Modifier.height(8.dp))
             Text("Layout", color = BroColors.TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf("auto" to "Auto", "phone" to "Phone", "desktop" to "Desktop").forEach { (key, label) ->
@@ -408,7 +416,7 @@ fun SettingsScreen(
                     if (on) Button(onClick = pick) { Text(label) } else OutlinedButton(onClick = pick) { Text(label) }
                 }
             }
-            Text("Desktop shows your chats in a sidebar next to the conversation. Auto turns it on for wide screens (tablet, sideways phone, a monitor). It works best with the phone turned sideways.", color = BroColors.TextSecondary, fontSize = 12.sp)
+            Text("Desktop shows your chats in a sidebar next to the conversation. Auto turns it on for wide screens (tablet, sideways phone, a monitor). On a phone, turn it sideways or zoom out to about 60% so the two panes fit; if they don't fit you get the normal layout.", color = BroColors.TextSecondary, fontSize = 12.sp)
             Spacer(Modifier.height(8.dp))
             Text("Turn it off to save battery. Colours below change the whole app at once. Green, red, purple and orange keep their meaning for done, failed, listening and thinking.", color = BroColors.TextSecondary, fontSize = 12.sp)
             Spacer(Modifier.height(10.dp))
