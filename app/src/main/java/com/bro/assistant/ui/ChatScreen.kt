@@ -170,7 +170,8 @@ fun ChatScreen(
                         val speakingNow = vm.state == BroState.SPEAKING && message.id == (vm.readingId ?: lastBroId)
                         Bubble(message, speakingNow, onListen = { vm.readAloud(message) }, onMute = { vm.mute() })
                     }
-                    if (thinking) item(key = "dino") { DinoThinking(if (vm.state == BroState.EXECUTING) "Working" else "Thinking") }
+                    if (thinking || com.bro.assistant.Activity.active) item(key = "activity") { ActivityCard(live = true) }
+                    else if (com.bro.assistant.Activity.lastItems.isNotEmpty() && vm.messages.lastOrNull()?.fromUser == false) item(key = "activity_done") { ActivityCard(live = false) }
                 }
             }
         }

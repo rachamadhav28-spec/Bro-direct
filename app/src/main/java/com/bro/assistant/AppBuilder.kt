@@ -21,12 +21,14 @@ class AppBuilder(private val prefs: PreferencesStore, private val gh: GitHubClie
     // ---------- create ----------
 
     suspend fun create(description: String, repoOverride: String?, confirm: suspend (String) -> Boolean): String {
+        com.bro.assistant.Activity.step("Writing the app code")
         val spec = generate(description)
         val repo = repoOverride ?: spec.repo
         val q = "Create repo \"$repo\" with the Android app \"${spec.name}\" (${spec.files.size} Kotlin files) " +
             "and start the APK build?"
         if (!confirm(q)) return "Okay, I didn't create it."
 
+        com.bro.assistant.Activity.step("Pushing the files to GitHub")
         try {
             gh.createRepo(repo, private = false, autoInit = true)
         } catch (e: GitHubException) {

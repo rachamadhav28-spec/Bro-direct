@@ -355,6 +355,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         tts.stop()
         if (echo) addMessage(true, shown)
         state = BroState.THINKING
+        Activity.begin("Thinking")
 
         val parts = com.bro.assistant.task.TaskChain.split(text)
         if (parts.size > 1) {
@@ -467,6 +468,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     // ---------- replies ----------
 
     private fun reply(text: String, end: BroState, then: (() -> Unit)? = null) {
+        Activity.finish()
         lastReply = text
         addMessage(false, text)
         memory.addBro(text)

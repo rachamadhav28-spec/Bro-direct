@@ -15,10 +15,12 @@ class IntentParser(private val memory: SessionMemory, private val prefs: Prefere
     private val client = GeminiClient(prefs)
 
     suspend fun understand(userText: String): AiPlan {
+        com.bro.assistant.Activity.step("Understanding your request")
         val local = com.bro.assistant.ai.LocalLlm.willUse(prefs) // short prompt = much faster on the phone
         val context = buildString {
             append(com.bro.assistant.memory.MemoryStore.promptText(prefs.appContext, if (local) 400 else 2000))
             append(com.bro.assistant.learn.LearnStore.promptText(prefs.appContext, userText, if (local) 300 else 1200))
+            if (com.bro.assistant.actions.ScreenContext.isAboutScreen(userText)) com.bro.assistant.Activity.step("Reading the screen")
             if (com.bro.assistant.actions.ScreenContext.isAboutScreen(userText)) append(com.bro.assistant.actions.ScreenContext.describe(if (local) 600 else 1600))
             append("Context:\n")
             append("last_app=").append(memory.lastApp ?: "none").append('\n')

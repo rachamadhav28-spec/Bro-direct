@@ -186,6 +186,7 @@ object Router {
         var last: Exception? = null
         for (p in available(prefs, skill, exclude)) {
             try {
+                com.bro.assistant.Activity.step("Asking ${p.label}")
                 val text = if (p == Provider.GEMINI) gemini.remoteOnly(system, user, json, timeoutMs)
                 else MultiAi.call(prefs, p, skill, system, user, json, timeoutMs)
                 return p to text

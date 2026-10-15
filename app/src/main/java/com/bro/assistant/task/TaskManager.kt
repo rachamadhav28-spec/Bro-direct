@@ -43,6 +43,7 @@ class TaskManager(
 
         for ((index, action) in actions.withIndex()) {
             setStep(index, ActionStatus.RUNNING, null)
+            com.bro.assistant.Activity.step("Running: " + label(action))
             action.status = ActionStatus.RUNNING
 
             var result = execute(action, confirm)
@@ -100,6 +101,7 @@ class TaskManager(
                 ActionType.YOUTUBE_PLAY_FIRST -> youtube.playFirstResult()
                 ActionType.AGENT_TASK -> agent.run(a.param("goal"), confirm) { note ->
                     // live progress lines under the plan (keep the list short)
+                    com.bro.assistant.Activity.note(note)
                     if (target.size > 12 && target.size > 1) target.removeAt(1)
                     target.add(StepUi(note, ActionStatus.SUCCESS))
                     com.bro.assistant.BroTaskService.update(context, "BRO: $note")

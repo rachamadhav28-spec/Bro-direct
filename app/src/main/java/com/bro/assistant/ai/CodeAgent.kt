@@ -32,12 +32,12 @@ object CodeAgent {
             "3 short lines saying what you fixed. If it is already correct, return it unchanged and say so."
 
     suspend fun solve(c: Context, ai: GeminiClient, request: String, notes: String): String {
-        BroTaskService.update(c, "Coding 1 of 3: planning")
+        BroTaskService.update(c, "Coding 1 of 3: planning"); com.bro.assistant.Activity.step("Planning the code")
         val plan = try { ai.generate(PLAN, notes + request, json = false, timeoutMs = 90000, skill = Skill.REASON).trim() } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { "" }
-        BroTaskService.update(c, "Coding 2 of 3: writing the code")
+        BroTaskService.update(c, "Coding 2 of 3: writing the code"); com.bro.assistant.Activity.step("Writing the code")
         val ui = DesignGuide.isUi(request)
         val draft = ai.generate(if (ui) WRITE + "\n" + DesignGuide.GUIDE else WRITE, notes + "Request:\n$request\n\nPlan:\n$plan", json = false, timeoutMs = 120000, skill = Skill.CODE).trim()
-        BroTaskService.update(c, "Coding 3 of 3: reviewing for bugs")
+        BroTaskService.update(c, "Coding 3 of 3: reviewing for bugs"); com.bro.assistant.Activity.step("Reviewing the code for bugs")
         return try {
             val reviewed = ai.generate(if (ui) REVIEW + " " + DesignGuide.CRITIQUE else REVIEW, "Request:\n$request\n\nCode:\n$draft", json = false, timeoutMs = 120000, skill = Skill.CODE).trim()
             if (reviewed.contains("```")) reviewed else draft

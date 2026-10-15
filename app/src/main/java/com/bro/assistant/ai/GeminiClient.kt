@@ -46,6 +46,7 @@ class GeminiClient(private val prefs: PreferencesStore) {
         }
         if (hasGemini && !routed) {
             try {
+                com.bro.assistant.Activity.step("Asking Gemini")
                 return generateRemote(system, user, json, timeoutMs)
             } catch (e: java.io.IOException) {
                 failure = e
@@ -72,6 +73,7 @@ class GeminiClient(private val prefs: PreferencesStore) {
      */
     suspend fun chatStream(system: String, user: String, grounded: Boolean, onPartial: (String) -> Unit): String {
         var useSearch = grounded
+        com.bro.assistant.Activity.step(if (grounded) "Searching the web with Google" else "Asking Gemini")
         var modelSwitched = false
         var keysTried = 0
         var attempt = 0

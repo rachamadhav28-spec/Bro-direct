@@ -99,6 +99,7 @@ class GitHubCommands(private val context: Context, private val prefs: Preference
         }
         val isGithub = matchesAny(text)
         if (!isGithub) return null
+        com.bro.assistant.Activity.step("Talking to GitHub")
         if (prefs.githubToken.isBlank()) {
             return "I need your GitHub token first. Add it in Menu, Settings, GitHub token."
         }

@@ -61,6 +61,7 @@ How to answer:
             if (history.isNotBlank()) append("Conversation so far:\n").append(history.takeLast(3000)).append("\n\n")
             append("User: ").append(question)
         }
+        com.bro.assistant.Activity.step("Writing the answer")
         val ai = GeminiClient(prefs)
         val grounded = fresh.containsMatchIn(question)
         val text = try {
