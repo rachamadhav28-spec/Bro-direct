@@ -20,6 +20,11 @@ object ThemeState {
         zoom = (Math.round((zoom + step).coerceIn(0.5f, 1.5f) * 10f) / 10f)
         store?.uiZoom = zoom
     }
+    /** Live value while pinching; saved when the fingers lift. */
+    fun zoomTo(z: Float, save: Boolean) {
+        zoom = z.coerceIn(0.5f, 1.5f)
+        if (save) { zoom = Math.round(zoom * 20f) / 20f; store?.uiZoom = zoom }
+    }
     fun zoomReset() { zoom = 1f; store?.uiZoom = 1f }
 
     class Preset(val name: String, val a: Long, val b: Long)

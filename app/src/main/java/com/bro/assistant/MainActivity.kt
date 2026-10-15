@@ -32,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.view.WindowCompat
 import com.bro.assistant.ui.ChatScreen
+import com.bro.assistant.ui.pinchToZoomApp
 import com.bro.assistant.ui.HistoryScreen
 import com.bro.assistant.ui.SettingsScreen
 import com.bro.assistant.ui.theme.BroTheme
@@ -155,7 +156,7 @@ class MainActivity : FragmentActivity() {
         com.bro.assistant.ui.theme.ThemeState.load(com.bro.assistant.memory.PreferencesStore(this))
         setContent {
             BroTheme {
-                Box(Modifier.fillMaxSize()) {
+                Box(Modifier.fillMaxSize().pinchToZoomApp()) {
                     if (needLogin) {
                         com.bro.assistant.ui.LoginScreen(
                             onPickGoogle = { pickGoogleAccount() },

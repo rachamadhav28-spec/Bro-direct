@@ -406,7 +406,7 @@ fun SettingsScreen(
                 OutlinedButton(onClick = { com.bro.assistant.ui.theme.ThemeState.zoomBy(0.1f) }) { Text("Zoom +") }
                 OutlinedButton(onClick = { com.bro.assistant.ui.theme.ThemeState.zoomReset() }) { Text("Reset") }
             }
-            Text("Zoom out to fit more on the screen, zoom in to make everything bigger. Also in the chat menu (the three dots).", color = BroColors.TextSecondary, fontSize = 12.sp)
+            Text("Pinch with two fingers anywhere to zoom. Zoom out to fit more on the screen, zoom in to make everything bigger. Also in the chat menu (the three dots).", color = BroColors.TextSecondary, fontSize = 12.sp)
             Spacer(Modifier.height(8.dp))
             Text("Layout", color = BroColors.TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
