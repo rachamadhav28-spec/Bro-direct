@@ -127,6 +127,10 @@ class PreferencesStore(context: Context) {
     var accentSecondary: Long
         get() = sp.getLong("accent_secondary", 0xFF9D6BFFL)
         set(value) { sp.edit().putLong("accent_secondary", value).apply() }
+    /** "auto" (wide screens get the desktop layout), "phone" or "desktop". */
+    var layoutMode: String
+        get() = sp.getString("layout_mode", "auto") ?: "auto"
+        set(value) { sp.edit().putString("layout_mode", value).apply() }
     var hudAnimation: Boolean
         get() = sp.getBoolean("hud_animation", true)
         set(value) { sp.edit().putBoolean("hud_animation", value).apply() }

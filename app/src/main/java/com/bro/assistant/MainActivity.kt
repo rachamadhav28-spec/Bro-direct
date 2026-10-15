@@ -9,6 +9,12 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -257,7 +263,29 @@ class MainActivity : FragmentActivity() {
                             onOpen = { showHistory = false }
                         )
                     } else {
-                        ChatScreen(
+                        val wide = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp
+                        val mode = com.bro.assistant.ui.theme.ThemeState.layout
+                        val desktop = mode == "desktop" || (mode == "auto" && wide >= 840)
+                        LaunchedEffect(desktop) { if (desktop) vm.refreshHistory() }
+                        if (desktop) {
+                            Row(Modifier.fillMaxSize().background(com.bro.assistant.ui.theme.BroColors.Background)) {
+                                Box(Modifier.width(if (wide >= 700) 300.dp else 190.dp).fillMaxHeight()) {
+                                    HistoryScreen(vm = vm, onBack = {}, onOpen = {}, embedded = true)
+                                }
+                                Box(Modifier.width(1.dp).fillMaxHeight().background(com.bro.assistant.ui.theme.BroColors.Outline))
+                                Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.TopCenter) {
+                                    Box(Modifier.widthIn(max = 900.dp).fillMaxHeight()) {
+                                        ChatScreen(
+                                            vm = vm,
+                                            onMic = { onMicTapped() },
+                                            onOpenSettings = { showSettings = true },
+                                            onOpenHistory = { vm.refreshHistory() },
+                                            onSecureConfirm = { action -> secure(action) }
+                                        )
+                                    }
+                                }
+                            }
+                        } else ChatScreen(
                             vm = vm,
                             onMic = { onMicTapped() },
                             onOpenSettings = { showSettings = true },

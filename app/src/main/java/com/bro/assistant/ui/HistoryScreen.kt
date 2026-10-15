@@ -38,7 +38,7 @@ import java.text.DateFormat
 import java.util.Date
 
 @Composable
-fun HistoryScreen(vm: ChatViewModel, onBack: () -> Unit, onOpen: () -> Unit) {
+fun HistoryScreen(vm: ChatViewModel, onBack: () -> Unit, onOpen: () -> Unit, embedded: Boolean = false) {
     var query by remember { mutableStateOf("") }
     var deleteId by remember { mutableStateOf<Long?>(null) }
     val shown = vm.history.filter { query.isBlank() || it.title.contains(query, ignoreCase = true) }
@@ -48,7 +48,7 @@ fun HistoryScreen(vm: ChatViewModel, onBack: () -> Unit, onOpen: () -> Unit) {
                 Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                TextButton(onClick = onBack) { Text("\u2190 Back") }
+                if (!embedded) TextButton(onClick = onBack) { Text("\u2190 Back") }
                 Text("History", color = BroColors.TextPrimary, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                 TextButton(onClick = { vm.newConversation(); onOpen() }) { Text("New chat") }
             }

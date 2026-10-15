@@ -12,6 +12,7 @@ object ThemeState {
     var primary by mutableStateOf(Color(0xFF00E5FF))
     var secondary by mutableStateOf(Color(0xFF9D6BFF))
     var hud by mutableStateOf(true)
+    var layout by mutableStateOf("auto")
 
     class Preset(val name: String, val a: Long, val b: Long)
     val presets = listOf(
@@ -24,7 +25,7 @@ object ThemeState {
     )
 
     fun load(p: PreferencesStore) {
-        primary = Color(p.accentPrimary.toInt()); secondary = Color(p.accentSecondary.toInt()); hud = p.hudAnimation
+        primary = Color(p.accentPrimary.toInt()); secondary = Color(p.accentSecondary.toInt()); hud = p.hudAnimation; layout = p.layoutMode
     }
 
     fun set(p: PreferencesStore, a: Color, b: Color) {

@@ -400,6 +400,16 @@ fun SettingsScreen(
             SwitchRow("Moving HUD background (grid, particles, rings)", hudOn) { on ->
                 hudOn = on; com.bro.assistant.ui.theme.ThemeState.hud = on; prefs.hudAnimation = on
             }
+            Text("Layout", color = BroColors.TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("auto" to "Auto", "phone" to "Phone", "desktop" to "Desktop").forEach { (key, label) ->
+                    val on = com.bro.assistant.ui.theme.ThemeState.layout == key
+                    val pick = { com.bro.assistant.ui.theme.ThemeState.layout = key; prefs.layoutMode = key }
+                    if (on) Button(onClick = pick) { Text(label) } else OutlinedButton(onClick = pick) { Text(label) }
+                }
+            }
+            Text("Desktop shows your chats in a sidebar next to the conversation. Auto turns it on for wide screens (tablet, sideways phone, a monitor). It works best with the phone turned sideways.", color = BroColors.TextSecondary, fontSize = 12.sp)
+            Spacer(Modifier.height(8.dp))
             Text("Turn it off to save battery. Colours below change the whole app at once. Green, red, purple and orange keep their meaning for done, failed, listening and thinking.", color = BroColors.TextSecondary, fontSize = 12.sp)
             Spacer(Modifier.height(10.dp))
             Text("Colour themes", color = BroColors.TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
