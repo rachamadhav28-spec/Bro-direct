@@ -18,6 +18,7 @@ import org.json.JSONException
 class GitHubCommands(private val context: Context, private val prefs: PreferencesStore) {
 
     private val client = GitHubClient(prefs)
+    private val extras = GitHubExtras(client)
     private val builder = AppBuilder(prefs, client)
 
     private fun rx(p: String) = Regex(p, RegexOption.IGNORE_CASE)
@@ -72,7 +73,7 @@ class GitHubCommands(private val context: Context, private val prefs: Preference
     private val appWord = rx(".*\\b(?:app|application|apk|android)\\b.*")
     private val ai = GeminiClient(prefs)
 
-    private fun matchesAny(t: String) = all.any { it.matches(t) }
+    private fun matchesAny(t: String) = all.any { it.matches(t) } || extras.matches(t)
 
     /** Free-form wording that mentions GitHub or app building: the AI rewrites it as one command BRO knows. */
     private suspend fun normalize(raw: String): String? {
@@ -249,6 +250,7 @@ class GitHubCommands(private val context: Context, private val prefs: Preference
             client.deleteFile(m.groupValues[2], m.groupValues[1])
             return "Deleted ${m.groupValues[1]}."
         }
+        extras.run(text, lastCode, confirm)?.let { return it }
         return "I didn't understand that GitHub command."
     }
 
@@ -318,6 +320,35 @@ class GitHubCommands(private val context: Context, private val prefs: Preference
             delete repo <name>
             delete branch <name> in <repo>
             delete file <path> in <repo>
+            make repo <repo> private
+            make repo <repo> public
+            star repo <repo>
+            unstar repo <repo>
+            list starred repos
+            create gist <filename>: <content>
+            create gist from last code
+            list gists
+            delete gist <id>
+            show notifications
+            mark notifications read
+            show my github profile
+            follow <username>
+            unfollow <username>
+            list followers
+            list following
+            list ssh keys
+            list gpg keys
+            list webhooks in <repo>
+            delete webhook <id> in <repo>
+            list codespaces
+            stop codespace <name>
+            delete codespace <name>
+            list packages
+            list projects
+            list discussions in <repo>
+            rerun build in <repo>
+            list workflows in <repo>
+            run workflow <file> in <repo>
             Rules:
             - If the user wants an app made (any wording, e.g. "I need an app for tracking expenses", "make me a quiz app with timer"), use the
               "build an android app that ..." form and keep ALL their details.

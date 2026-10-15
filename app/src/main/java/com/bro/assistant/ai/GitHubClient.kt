@@ -43,6 +43,9 @@ class GitHubClient(private val prefs: PreferencesStore) {
             }
         }
 
+    /** Raw API access for the extra commands (gists, keys, hooks, codespaces...). */
+    suspend fun api(method: String, path: String, body: JSONObject? = null): String = call(method, path, body)
+
     suspend fun login(): String = JSONObject(call("GET", "/user")).getString("login")
 
     /** "name" -> "<me>/name"; "owner/name" stays as is. */
