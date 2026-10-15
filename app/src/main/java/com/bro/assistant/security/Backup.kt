@@ -12,7 +12,7 @@ import javax.crypto.spec.PBEKeySpec
 import javax.crypto.spec.SecretKeySpec
 
 /**
- * Backs up every setting and key into ONE file locked with a password you choose, so you can delete the app,
+ * Backs up every setting, key and saved chat into ONE file locked with a password you choose, so you can delete the app,
  * install a new one and bring everything back. (The phone's keystore does not survive uninstall, so secrets are
  * stored inside the file, protected by your password.)
  */
@@ -20,7 +20,7 @@ object Backup {
     private val MAGIC = "BROBK1".toByteArray()
     private val files = listOf(
         "bro_prefs", "bro_memory", "bro_notes", "bro_study", "bro_reminders", "bro_watch",
-        "bro_lock", "bro_voice_lock", "bro_proactive", "bro_bubble"
+        "bro_lock", "bro_voice_lock", "bro_proactive", "bro_bubble", "bro_chat_v2"
     )
     private val secretShape = Regex("^[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+$")
 

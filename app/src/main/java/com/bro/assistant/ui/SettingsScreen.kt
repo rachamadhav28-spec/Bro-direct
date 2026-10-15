@@ -377,7 +377,7 @@ fun SettingsScreen(
         }
         SectionHeader("Backup and restore", openSection == "Backup and restore") { openSection = if (openSection == "Backup and restore") "" else "Backup and restore" }
         if (openSection == "Backup and restore") {
-            Text("Saves all your keys and settings in one file, locked with a password. Delete the app, install the new one, then restore the file and everything comes back.", color = Color.Gray, fontSize = 12.sp)
+            Text("Saves all your keys, settings, study notes and chats in one file, locked with a password. Delete the app, install the new one, then restore the file and everything comes back.", color = Color.Gray, fontSize = 12.sp)
             OutlinedTextField(
                 value = backupPw, onValueChange = { backupPw = it }, label = { Text("Backup password (min 6 characters)") },
                 singleLine = true, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth()
