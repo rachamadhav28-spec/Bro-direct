@@ -1,5 +1,6 @@
 package com.bro.assistant.ui
 
+import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -8,7 +9,7 @@ import com.bro.assistant.ui.theme.ThemeState
 
 /** Two-finger pinch zooms the whole app. One-finger taps and scrolls are left alone. */
 fun Modifier.pinchToZoomApp(): Modifier = pointerInput(Unit) {
-    androidx.compose.foundation.gestures.awaitEachGesture {
+    awaitEachGesture {
         var pinching = false
         awaitPointerEvent(PointerEventPass.Initial)
         do {
