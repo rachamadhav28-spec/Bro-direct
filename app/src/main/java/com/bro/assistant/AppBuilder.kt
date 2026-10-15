@@ -51,9 +51,26 @@ class AppBuilder(private val prefs: PreferencesStore, private val gh: GitHubClie
     }
 
     private suspend fun generate(description: String): Spec {
-        val raw = gemini.generate(CREATE_PROMPT, "Build this app: $description", json = true, timeoutMs = 150000)
-        val obj = parseJson(raw)
-        val files = readFiles(obj)
+        // A long JSON answer can come back damaged (cut off or bad escaping), so one clean retry is allowed.
+        var obj: JSONObject? = null
+        var files: List<GenFile> = emptyList()
+        var lastError: Exception? = null
+        for (attempt in 1..2) {
+            try {
+                val raw = gemini.generate(
+                    CREATE_PROMPT,
+                    "Build this app: $description" + if (attempt == 2) "\n\nIMPORTANT: your last answer was not valid JSON. Reply with ONE complete JSON object only, " +
+                        "escape every quote and newline inside file contents, and keep the app small (at most 6 files)." else "",
+                    json = true, timeoutMs = 150000
+                )
+                obj = parseJson(raw)
+                files = readFiles(obj)
+                break
+            } catch (e: org.json.JSONException) {
+                lastError = e
+            }
+        }
+        if (obj == null) throw IllegalStateException("The AI's app answer was cut off or damaged twice. Try a smaller app, for example the main screen first, then add features one by one.")
         val name = obj.optString("app_name").ifBlank { "My App" }.take(40)
         val repo = AppTemplate.slug(obj.optString("repo").ifBlank { name })
         return Spec(name, repo, files)
@@ -120,8 +137,11 @@ class AppBuilder(private val prefs: PreferencesStore, private val gh: GitHubClie
 
     // ---------- helpers ----------
 
-    private fun parseJson(raw: String): JSONObject =
-        JSONObject(raw.trim().removePrefix("```json").removePrefix("```").removeSuffix("```").trim())
+    private fun parseJson(raw: String): JSONObject {
+        val t = raw.trim().removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
+        val a = t.indexOf('{'); val b = t.lastIndexOf('}')
+        return JSONObject(if (a >= 0 && b > a) t.substring(a, b + 1) else t)
+    }
 
     private fun readFiles(obj: JSONObject): List<GenFile> {
         val arr = obj.optJSONArray("files") ?: throw IllegalStateException("The AI didn't return any files. Try again.")

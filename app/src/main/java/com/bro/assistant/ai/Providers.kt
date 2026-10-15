@@ -129,7 +129,7 @@ object MultiAi {
                         .put(JSONObject().put("role", "user").put("content", user))
                 )
                 .put("temperature", if (json) 0.2 else 0.3)
-                .put("max_tokens", if (json) 2048 else 4096)
+                .put("max_tokens", if (timeoutMs > 60000) 8000 else if (json) 2048 else 4096)
             conn.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
 
             val code = conn.responseCode

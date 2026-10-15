@@ -189,9 +189,10 @@ class GeminiClient(private val prefs: PreferencesStore) {
                     JSONObject().apply {
                         if (json) put("responseMimeType", "application/json")
                         put("temperature", if (json) 0.2 else 0.3)
-                        put("maxOutputTokens", if (json) 1024 else 32768)
+                        // short commands stay small and fast; big jobs (long timeout = app/code writing) may answer at length
+                        put("maxOutputTokens", if (json && !streaming) 1024 else 32768)
                         // quick commands do not need long "thinking": skip it for speed (retried without if unsupported)
-                        if (json && !prefs.thinkingUnsupported) {
+                        if (json && !streaming && !prefs.thinkingUnsupported) {
                             put("thinkingConfig", JSONObject().put("thinkingBudget", 0))
                         }
                     }
