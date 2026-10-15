@@ -66,6 +66,79 @@ class GeminiClient(private val prefs: PreferencesStore) {
         throw failure ?: AiException(401, "no AI key is set")
     }
 
+    /**
+     * ChatGPT-style answer: streamed piece by piece to [onPartial], optionally grounded with Google Search for current facts.
+     * Gemini only. Callers fall back to [generate] when this throws.
+     */
+    suspend fun chatStream(system: String, user: String, grounded: Boolean, onPartial: (String) -> Unit): String {
+        var useSearch = grounded
+        var modelSwitched = false
+        var keysTried = 0
+        var attempt = 0
+        val waits = longArrayOf(2000, 6000)
+        while (true) {
+            try {
+                return chatOnce(system, user, useSearch, onPartial)
+            } catch (e: AiException) {
+                if (e.code == 404 && !modelSwitched && switchModel()) { modelSwitched = true; continue }
+                if (useSearch && (e.code == 400 || e.code == 403)) { useSearch = false; continue }
+                if (e.code == 429 && keysTried < prefs.apiKeyList().size - 1 && nextKey()) { keysTried++; continue }
+                if (e.code !in listOf(429, 500, 502, 503, 504) || attempt >= waits.size) throw e
+                delay(waits[attempt++])
+            }
+        }
+    }
+
+    private suspend fun chatOnce(system: String, user: String, grounded: Boolean, onPartial: (String) -> Unit): String = withContext(Dispatchers.IO) {
+        val url = URL("https://generativelanguage.googleapis.com/v1beta/models/${prefs.model}:streamGenerateContent?alt=sse")
+        val conn = url.openConnection() as HttpURLConnection
+        try {
+            conn.requestMethod = "POST"
+            conn.connectTimeout = 15000
+            conn.readTimeout = 120000
+            conn.doOutput = true
+            conn.setRequestProperty("Content-Type", "application/json")
+            conn.setRequestProperty("x-goog-api-key", currentKey())
+            val body = JSONObject()
+                .put("systemInstruction", JSONObject().put("parts", JSONArray().put(JSONObject().put("text", system))))
+                .put("contents", JSONArray().put(JSONObject().put("role", "user").put("parts", JSONArray().put(JSONObject().put("text", user)))))
+                .put("generationConfig", JSONObject().put("temperature", 0.7).put("maxOutputTokens", 8192))
+            if (grounded) body.put("tools", JSONArray().put(JSONObject().put("google_search", JSONObject())))
+            conn.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
+            val code = conn.responseCode
+            if (code !in 200..299) {
+                val text = conn.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
+                throw AiException(code, "model=${prefs.model}; " + (runCatching { JSONObject(text).getJSONObject("error").getString("message") }.getOrDefault(text)).take(120))
+            }
+            val sb = StringBuilder()
+            val sources = LinkedHashMap<String, String>()
+            var lastPush = 0L
+            conn.inputStream.bufferedReader().useLines { lines ->
+                for (line in lines) {
+                    if (!line.startsWith("data:")) continue
+                    val data = line.removePrefix("data:").trim()
+                    if (data.isEmpty()) continue
+                    val cand = JSONObject(data).optJSONArray("candidates")?.optJSONObject(0) ?: continue
+                    val parts = cand.optJSONObject("content")?.optJSONArray("parts")
+                    if (parts != null) for (i in 0 until parts.length()) sb.append(parts.getJSONObject(i).optString("text"))
+                    cand.optJSONObject("groundingMetadata")?.optJSONArray("groundingChunks")?.let { ch ->
+                        for (i in 0 until ch.length()) {
+                            val w = ch.getJSONObject(i).optJSONObject("web") ?: continue
+                            val u = w.optString("uri"); if (u.isNotBlank()) sources[u] = w.optString("title").ifBlank { u }
+                        }
+                    }
+                    val now = System.currentTimeMillis()
+                    if (sb.isNotEmpty() && now - lastPush > 120) { lastPush = now; onPartial(sb.toString()) }
+                }
+            }
+            if (sb.isBlank()) throw AiException(502, "model=${prefs.model}; empty answer")
+            if (sources.isNotEmpty()) sb.append("\n\nSources:\n").append(sources.entries.take(4).joinToString("\n") { "- ${it.value}: ${it.key}" })
+            sb.toString()
+        } finally {
+            conn.disconnect()
+        }
+    }
+
     /** Gemini only (used by the router so it can try the other services itself). */
     suspend fun remoteOnly(system: String, user: String, json: Boolean, timeoutMs: Int): String =
         generateRemote(system, user, json, timeoutMs)

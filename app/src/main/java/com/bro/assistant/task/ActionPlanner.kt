@@ -26,6 +26,9 @@ class ActionPlanner(
 ) {
     private val extra = ExtraCommands(context)
     private val local = LocalCommandParser(memory)
+    /** Set by the screen: receives the answer as it streams in. */
+    @Volatile var onPartial: ((String) -> Unit)? = null
+
     private val ai = IntentParser(memory, prefs)
     private val gemini = com.bro.assistant.ai.GeminiClient(prefs)
 
@@ -110,6 +113,18 @@ class ActionPlanner(
             if (cached != null && (offline || !looksLikeCode(text))) return PlanResult(reply = cached + if (offline) "\n\n(Offline: from my memory)" else "")
             if (offline && !com.bro.assistant.ai.LocalLlm.willUse(prefs)) {
                 com.bro.assistant.learn.AnswerCache.fromNotes(app, text)?.let { return PlanResult(reply = it) }
+            }
+        }
+        if (com.bro.assistant.ai.ChatAgent.wants(text, prefs)) {
+            return try {
+                val answer = com.bro.assistant.ai.ChatAgent.answer(context.applicationContext, prefs, text, memory.historyText()) { onPartial?.invoke(it) }
+                SessionMemory.extractLastCode(answer)?.let { memory.lastCode = it }
+                PlanResult(reply = answer)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                ErrorHandler.log("ActionPlanner", "chat answer failed", e)
+                PlanResult(error = ErrorHandler.friendly(e))
             }
         }
         return try {

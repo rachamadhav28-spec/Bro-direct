@@ -38,7 +38,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application
     val prefs = PreferencesStore(app)
     private val memory = SessionMemory()
-    private val planner = ActionPlanner(app, memory, prefs)
+    private val planner = ActionPlanner(app, memory, prefs).also { p -> p.onPartial = { t -> showPartial(t) } }
     private val github = GitHubCommands(app, prefs)
     private val taskManager = TaskManager(app, memory, prefs)
     val tts = SpeechOutput(app, prefs)
@@ -215,7 +215,36 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         refreshHistory()
     }
 
+    /** The reply that is being typed out live (ChatGPT style); replaced by the final text when the answer is complete. */
+    private var liveId: Long? = null
+    private var liveBusy = false
+    private val ui = android.os.Handler(android.os.Looper.getMainLooper())
+
+    private fun showPartial(text: String) {
+        ui.post {
+            val id = liveId
+            if (id == null) {
+                val m = ChatMessage(nextId++, false, text)
+                liveId = m.id; messages.add(m)
+            } else {
+                val i = messages.indexOfFirst { it.id == id }
+                if (i >= 0) messages[i] = ChatMessage(id, false, text)
+            }
+        }
+    }
+
     private fun addMessage(fromUser: Boolean, text: String) {
+        val live = liveId
+        if (!fromUser && live != null) {
+            liveId = null
+            ui.post {
+                val i = messages.indexOfFirst { it.id == live }
+                if (i >= 0) messages[i] = ChatMessage(live, false, text) else messages.add(ChatMessage(nextId++, false, text))
+            }
+            stored.add(StoredMessage("bro", text))
+            saveCurrent()
+            return
+        }
         messages.add(ChatMessage(nextId++, fromUser, text))
         stored.add(StoredMessage(if (fromUser) "user" else "bro", text))
         saveCurrent()
