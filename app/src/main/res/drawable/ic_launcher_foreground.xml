@@ -3,23 +3,28 @@
     xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp" android:height="108dp"
     android:viewportWidth="108" android:viewportHeight="108">
-    <!-- outer ring -->
+    <!-- Mark: a gradient ring with an opening (a voice "listening"), and a glowing core.
+         Everything stays inside the 66dp safe zone so any launcher shape keeps it whole. -->
     <path
-        android:pathData="M54,54m-30,0a30,30 0,1 1,60 0a30,30 0,1 1,-60 0"
-        android:strokeColor="#3300E5FF" android:strokeWidth="1.5" android:fillColor="#00000000" />
-    <path
-        android:pathData="M54,54m-25,0a25,25 0,1 1,50 0a25,25 0,1 1,-50 0"
-        android:strokeColor="#6600E5FF" android:strokeWidth="1.5" android:fillColor="#00000000" />
-    <!-- glowing orb -->
-    <path android:pathData="M54,54m-20,0a20,20 0,1 1,40 0a20,20 0,1 1,-40 0">
-        <aapt:attr name="android:fillColor">
-            <gradient
-                android:type="radial" android:centerX="54" android:centerY="54"
-                android:gradientRadius="20">
+        android:pathData="M54,29.5 A24.5,24.5 0 1 1 29.5,54"
+        android:strokeWidth="6" android:strokeLineCap="round" android:fillColor="#00000000">
+        <aapt:attr name="android:strokeColor">
+            <gradient android:type="linear" android:startX="30" android:startY="30" android:endX="78" android:endY="78">
                 <item android:offset="0.0" android:color="#FF00E5FF" />
-                <item android:offset="0.7" android:color="#FF0097A7" />
-                <item android:offset="1.0" android:color="#FF006064" />
+                <item android:offset="1.0" android:color="#FF9D6BFF" />
             </gradient>
         </aapt:attr>
     </path>
+    <!-- core orb -->
+    <path android:pathData="M54,54m-14,0a14,14 0,1 1,28 0a14,14 0,1 1,-28 0">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="radial" android:centerX="49" android:centerY="48" android:gradientRadius="20">
+                <item android:offset="0.0" android:color="#FFE0FBFF" />
+                <item android:offset="0.35" android:color="#FF00E5FF" />
+                <item android:offset="1.0" android:color="#FF4A5CFF" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <!-- small highlight, gives the orb depth -->
+    <path android:pathData="M48.5,47.5m-3.2,0a3.2,3.2 0,1 1,6.4 0a3.2,3.2 0,1 1,-6.4 0" android:fillColor="#99FFFFFF" />
 </vector>

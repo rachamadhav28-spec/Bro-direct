@@ -19,6 +19,7 @@ class IntentParser(private val memory: SessionMemory, private val prefs: Prefere
         val context = buildString {
             append(com.bro.assistant.memory.MemoryStore.promptText(prefs.appContext, if (local) 400 else 2000))
             append(com.bro.assistant.learn.LearnStore.promptText(prefs.appContext, userText, if (local) 300 else 1200))
+            if (com.bro.assistant.actions.ScreenContext.isAboutScreen(userText)) append(com.bro.assistant.actions.ScreenContext.describe(if (local) 600 else 1600))
             append("Context:\n")
             append("last_app=").append(memory.lastApp ?: "none").append('\n')
             append("last_contact=").append(memory.lastContact ?: "none").append('\n')
@@ -27,7 +28,7 @@ class IntentParser(private val memory: SessionMemory, private val prefs: Prefere
             append("User says: ").append(userText)
         }
         // short chat goes to the fastest free AI first (Groq), so replies come quicker
-        val skill = if (!local && userText.length < 120) Skill.FAST else null
+        val skill = if (!local && userText.length < 120 && prefs.apiKey.isBlank()) Skill.FAST else null
         return parse(client.generate(if (local) COMPACT_PROMPT else SYSTEM_PROMPT, context, skill = skill))
     }
 
@@ -128,6 +129,9 @@ class IntentParser(private val memory: SessionMemory, private val prefs: Prefere
             English -> English. Keep replies short.
 
             Rules:
+            - If a "Screen right now" block is given, you can see the screen. Use it for words like "this page", "this screen",
+              "here". To press something that is visible, use AGENT_TASK with goal "tap <exact label> in the current app".
+              To answer a question about the screen, use the visible text and keep actions empty.
             - If the user is only chatting or asking a question, use an empty actions list and answer in reply (max 2 short sentences).
             - If the user wants actions, reply is a short confirmation such as "Working on it."
             - Resolve words like him, her, that app, the same message using the context.

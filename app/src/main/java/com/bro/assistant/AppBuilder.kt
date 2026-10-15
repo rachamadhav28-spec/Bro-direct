@@ -44,9 +44,10 @@ class AppBuilder(private val prefs: PreferencesStore, private val gh: GitHubClie
         val wf = scaffold.first { it.first == AppTemplate.WORKFLOW_PATH }
         gh.putFile(full, wf.first, wf.second, "Add build workflow via BRO")
 
-        return "Done. Repo: https://github.com/$full\n" +
-            "The build takes about 2 minutes. Then say \"build status of ${full.substringAfter('/')}\", " +
-            "and \"download apk of ${full.substringAfter('/')}\"."
+        return "Done. I wrote your app and pushed it to GitHub:\nhttps://github.com/$full\n\n" +
+            "Please check GitHub Actions now: https://github.com/$full/actions\n" +
+            "It builds the APK in about 2 minutes. When it is green, say \"download apk of ${full.substringAfter('/')}\". " +
+            "If it fails, say \"fix the build of ${full.substringAfter('/')}\" and I will repair it."
     }
 
     private suspend fun generate(description: String): Spec {

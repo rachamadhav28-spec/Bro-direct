@@ -54,8 +54,8 @@ class GitHubCommands(private val context: Context, private val prefs: Preference
     private val deleteFile = rx("^delete\\s+file\\s+(\\S+)\\s+$inRepo$")
 
     private val createApp = Regex(
-        "^(?:create|build|make|generate|develop)\\s+(?:me\\s+)?(?:an?\\s+|the\\s+)?(?:[\\w-]+\\s+){0,3}?(?:android\\s+app|apk)\\b" +
-            "(?:\\s+(?:in|into)\\s+(?:repo\\s+)?([\\w.-]+))?\\s*(?:that|which|for|of|to|called|named|:|-)?\\s*(.+)$",
+        "^(?:create|build|make|generate|develop)\\s+(?:me\\s+)?(?:an?\\s+|the\\s+)?(?:[\\w-]+\\s+){0,3}?(?:android\\s+app|apk|app|application)\\b" +
+            "(?:\\s+(?:in|into)\\s+(?:repo\\s+)?([\\w.-]+))?\\s*(?:that|which|for|of|to|called|named|with|having|:|-)?\\s*(?:(?:these|this|the)\\s+features?\\s*[:\\-]?\\s*)?(.{12,})$",
         setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)
     )
     private val buildStatus = rx("^(?:check\\s+)?(?:the\\s+)?build\\s+(?:status\\s+)?(?:of|for|in)\\s+$repoRef$")
