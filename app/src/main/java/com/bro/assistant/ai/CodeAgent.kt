@@ -22,14 +22,14 @@ object CodeAgent {
 
     private const val WRITE =
         "You are BRO, an expert programmer. Write COMPLETE, runnable code that follows the plan. Rules: every file in its own fenced block " +
-            "with the language, the file name on the first comment line; all imports; no placeholders or '...'; handle errors and edge cases. " +
+            "with the language; all imports; no placeholders or '...'; handle errors and edge cases. " +
             "After the code give at most 3 short lines on how to run it. The user may write English, Telugu or Tenglish: answer in the same style " +
-            "but keep code and identifiers in English."
+            "but keep code and identifiers in English. " + CodeFormat.RULES
 
     private const val REVIEW =
         "You are a strict code reviewer. Check the code for syntax errors, logic bugs, missing imports, wrong API use and unhandled edge cases " +
-            "against the request. Reply with the FINAL corrected code in full (every file, fenced blocks, file name on the first line), then at most " +
-            "3 short lines saying what you fixed. If it is already correct, return it unchanged and say so."
+            "against the request. Reply with the FINAL corrected code in full (every file in its own fenced block, with its file name in bold on the line above), then at most " +
+            "3 short lines saying what you fixed. If it is already correct, return it unchanged and say so. " + CodeFormat.RULES
 
     suspend fun solve(c: Context, ai: GeminiClient, request: String, notes: String): String {
         BroTaskService.update(c, "Coding 1 of 3: planning"); com.bro.assistant.Activity.step("Planning the code")

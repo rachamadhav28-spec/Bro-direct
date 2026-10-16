@@ -2,6 +2,12 @@ package com.bro.assistant.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -25,7 +31,7 @@ import com.bro.assistant.ui.theme.BroColors
 
 /** The current task: a progress bar and each step with a tick, cross or in-progress mark (word plus colour). */
 @Composable
-fun TaskProgressCard(steps: List<StepUi>, modifier: Modifier = Modifier) {
+fun TaskProgressCard(steps: List<StepUi>, modifier: Modifier = Modifier, onDismiss: (() -> Unit)? = null) {
     if (steps.isEmpty()) return
     val done = steps.count { it.status == ActionStatus.SUCCESS }
     val failed = steps.any { it.status == ActionStatus.FAILED }
@@ -36,9 +42,28 @@ fun TaskProgressCard(steps: List<StepUi>, modifier: Modifier = Modifier) {
             .border(1.dp, (if (failed) BroColors.Error else NeonCyan).copy(alpha = 0.45f), RoundedCornerShape(16.dp))
             .padding(12.dp)
     ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Working on it", color = BroColors.TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-            Text("$done of ${steps.size}", color = BroColors.TextSecondary, fontSize = 13.sp)
+        val finished = steps.none { it.status == ActionStatus.PENDING || it.status == ActionStatus.RUNNING }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                if (finished) (if (failed) "Task stopped" else "Task done") else "Working on it",
+                color = BroColors.TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("$done of ${steps.size}", color = BroColors.TextSecondary, fontSize = 13.sp)
+                if (onDismiss != null) {
+                    Text(
+                        "✕",
+                        color = BroColors.TextSecondary,
+                        fontSize = 16.sp,
+                        modifier = Modifier
+                            .padding(start = 6.dp)
+                            .clip(CircleShape)
+                            .clickable(onClickLabel = "Dismiss") { onDismiss() }
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                            .semantics { contentDescription = "Dismiss this card" }
+                    )
+                }
+            }
         }
         Spacer(Modifier.height(8.dp))
         LinearProgressIndicator(

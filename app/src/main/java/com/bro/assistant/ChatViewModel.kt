@@ -63,6 +63,19 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     val steps: List<StepUi> get() = taskManager.steps
 
+    /** Removes the task card (the X button, and automatically a few seconds after a task has finished). */
+    fun clearSteps() { taskManager.steps.clear() }
+
+    /** The whole current chat as plain text, for the "Download chat" menu item. */
+    fun exportText(): String {
+        val stamp = java.text.SimpleDateFormat("dd MMM yyyy, HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
+        val body = buildString {
+            append("BRO chat - ").append(stamp).append("\n\n")
+            for (m in messages) append(if (m.fromUser) "You: " else "BRO: ").append(m.text.trim()).append("\n\n")
+        }
+        return body.trimEnd() + "\n"
+    }
+
     private var busy = false
     private var nextId = 0L
     private var confirmDeferred: CompletableDeferred<Boolean>? = null

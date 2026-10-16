@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.sp
 import com.bro.assistant.BroState
 import com.bro.assistant.ChatMessage
 import com.bro.assistant.ChatViewModel
+import com.bro.assistant.task.ActionStatus
 import com.bro.assistant.ui.theme.BroColors
 
 @Composable
@@ -69,6 +70,28 @@ fun ChatScreen(
     var menuOpen by remember { mutableStateOf(false) }
     var input by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    // "Download chat": saves the whole conversation as a text file
+    val chatSaver = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("text/plain")
+    ) { uri ->
+        if (uri != null) {
+            val ok = runCatching {
+                context.contentResolver.openOutputStream(uri)?.use { it.write(vm.exportText().toByteArray(Charsets.UTF_8)) }
+            }.isSuccess
+            android.widget.Toast.makeText(context, if (ok) "Chat saved" else "Couldn't save the chat", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // the task card disappears by itself a few seconds after the task is over (it can also be closed with the X)
+    val taskOver = vm.steps.isNotEmpty() && vm.steps.none { it.status == ActionStatus.PENDING || it.status == ActionStatus.RUNNING }
+    LaunchedEffect(taskOver, vm.steps.size) {
+        if (taskOver) {
+            kotlinx.coroutines.delay(5000)
+            vm.clearSteps()
+        }
+    }
 
     val thinking = vm.state == BroState.THINKING || vm.state == BroState.EXECUTING
     LaunchedEffect(vm.messages.size, thinking) {
@@ -112,6 +135,18 @@ fun ChatScreen(
                     }
                     DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }, containerColor = BroColors.Panel) {
                         DropdownMenuItem(text = { Text("History", color = BroColors.TextPrimary) }, onClick = { menuOpen = false; onOpenHistory() })
+                        DropdownMenuItem(
+                            text = { Text("Download chat", color = BroColors.TextPrimary) },
+                            onClick = {
+                                menuOpen = false
+                                if (vm.messages.isEmpty()) {
+                                    android.widget.Toast.makeText(context, "Nothing to download yet", android.widget.Toast.LENGTH_SHORT).show()
+                                } else {
+                                    val stamp = java.text.SimpleDateFormat("yyyyMMdd-HHmm", java.util.Locale.getDefault()).format(java.util.Date())
+                                    chatSaver.launch("BRO-chat-$stamp.txt")
+                                }
+                            }
+                        )
                         DropdownMenuItem(text = { Text("Settings", color = BroColors.TextPrimary) }, onClick = { menuOpen = false; onOpenSettings() })
                         DropdownMenuItem(
                             text = { Text("Zoom in  +", color = BroColors.TextPrimary) },
@@ -138,7 +173,7 @@ fun ChatScreen(
             )
         }
 
-        Box(Modifier.padding(horizontal = 16.dp)) { TaskProgressCard(vm.steps) }
+        Box(Modifier.padding(horizontal = 16.dp)) { TaskProgressCard(vm.steps, onDismiss = { vm.clearSteps() }) }
 
         // ── Conversation, or a welcome with starters when it is empty ──
         Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -254,7 +289,7 @@ private fun Bubble(message: ChatMessage, speakingNow: Boolean, onListen: () -> U
                 .border(1.dp, if (message.fromUser) NeonCyan.copy(alpha = 0.25f) else BroColors.Outline, shape)
                 .padding(horizontal = 14.dp, vertical = 10.dp)
         ) {
-            MessageBody(message.text)
+            MessageBody(message.text, markdown = !message.fromUser)
         }
         // under BRO's replies: Copy, and Mute (while it talks) or Listen
         if (!message.fromUser && message.text.isNotBlank()) {

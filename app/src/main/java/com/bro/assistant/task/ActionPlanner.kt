@@ -152,9 +152,15 @@ class ActionPlanner(
         RegexOption.IGNORE_CASE
     )
 
+    // talk about code that is already in the chat ("in the code there were lines like ___, I don't want them")
+    private val codeTalk = Regex(
+        "\\b(?:code|line|lines|comment|comments|separator|separators|function|class|variable|import|imports|syntax|compile|compiler|error|bug|mainactivity|xml|layout|snippet)\\b",
+        RegexOption.IGNORE_CASE
+    )
+
     private fun looksLikeCode(text: String): Boolean =
         (codeWord.containsMatchIn(text) && codeVerb.containsMatchIn(text)) ||
-            (memory.lastCode != null && followUp.containsMatchIn(text.trim()))
+            (memory.lastCode != null && (followUp.containsMatchIn(text.trim()) || codeTalk.containsMatchIn(text)))
 
     private fun validated(reply: String?, actions: List<BroAction>): PlanResult {
         for (action in actions) {

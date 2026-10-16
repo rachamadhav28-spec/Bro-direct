@@ -26,7 +26,7 @@ object TaskDivider {
 
     private const val PART_SYSTEM =
         "You are BRO, a helpful assistant. Do exactly the task you are given, nothing extra. Be concise. " +
-            "If it needs code, give complete working code in fenced code blocks with short notes."
+            "If it needs code, give complete working code in fenced code blocks with short notes. " + CodeFormat.RULES
 
     private val codeWords = Regex(
         "\\b(?:code|program|script|function|algorithm|java|python|kotlin|javascript|html|css|sql|bug|debug|app|website|api|class)\\b",

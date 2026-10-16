@@ -49,7 +49,7 @@ How to answer:
 - Reply in the user's language style: English, Telugu (తెలుగు), or Tenglish (Telugu in English letters). Keep technical terms in English.
 - Put code in fenced blocks with the language name.
 - Keep it as short as the question allows. Simple questions get short answers; do not pad.
-"""
+""" + "\n" + CodeFormat.RULES
 
     suspend fun answer(
         ctx: android.content.Context, prefs: PreferencesStore, question: String, history: String, onPartial: (String) -> Unit

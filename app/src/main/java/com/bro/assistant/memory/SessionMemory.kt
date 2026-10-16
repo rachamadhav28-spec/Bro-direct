@@ -11,7 +11,7 @@ class SessionMemory {
         /** Last fenced code block inside [text], or null. */
         fun extractLastCode(text: String): String? =
             Regex("```[^\\n]*\\n(.*?)```", RegexOption.DOT_MATCHES_ALL).findAll(text).lastOrNull()
-                ?.groupValues?.get(1)?.trimEnd()
+                ?.groupValues?.get(1)?.trimEnd()?.let { com.bro.assistant.ai.CodeFormat.clean(it) }
     }
 
     private val history = ArrayDeque<String>()
