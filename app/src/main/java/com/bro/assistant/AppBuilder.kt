@@ -42,7 +42,7 @@ class AppBuilder(private val prefs: PreferencesStore, private val gh: GitHubClie
         for ((path, content) in scaffold.filter { it.first != AppTemplate.WORKFLOW_PATH }) {
             gh.putFile(full, path, content, "Add $path via BRO")
         }
-        for (f in spec.files) gh.putFile(full, f.path, f.content, "Add ${f.path.substringAfterLast('/')} via BRO")
+        for (f in spec.files) gh.putFile(full, f.path, CodeLint.fix(f.content), "Add ${f.path.substringAfterLast('/')} via BRO")
         val wf = scaffold.first { it.first == AppTemplate.WORKFLOW_PATH }
         gh.putFile(full, wf.first, wf.second, "Add build workflow via BRO")
 
@@ -129,11 +129,20 @@ class AppBuilder(private val prefs: PreferencesStore, private val gh: GitHubClie
         val raw = gemini.generate(
             FIX_PROMPT, "Build errors:\n$errors\n\nCurrent files:\n$current", json = true, timeoutMs = 150000
         )
-        val files = readFiles(parseJson(raw), requireMain = false)
-        if (!confirm("Push a fix for ${files.joinToString { it.path.substringAfterLast('/') }} in $repo?")) {
+        val ai = readFiles(parseJson(raw), requireMain = false).associate { it.path to CodeLint.fix(it.content) }.toMutableMap()
+        // certain repairs (missing imports, experimental opt-ins) on every file, whatever the AI changed
+        for (n in names) {
+            val path = AppTemplate.SOURCE_DIR + n
+            if (path in ai) continue
+            val old = gh.readFile(repo, path)
+            val fixed = CodeLint.fix(old)
+            if (fixed != old) ai[path] = fixed
+        }
+        if (ai.isEmpty()) return "I couldn't find anything to change. See the errors with \"why did the build fail in ${repo.substringAfter('/')}\"."
+        if (!confirm("Push a fix for ${ai.keys.joinToString { it.substringAfterLast('/') }} in $repo?")) {
             return "Okay, I didn't push it."
         }
-        for (f in files) gh.putFile(repo, f.path, f.content, "Fix build errors via BRO")
+        gh.commitFiles(repo, ai, "Fix build errors via BRO")
         return "Pushed the fix. A new build started. Say \"build status of ${repo.substringAfter('/')}\" in 2 minutes."
     }
 
@@ -171,7 +180,8 @@ class AppBuilder(private val prefs: PreferencesStore, private val gh: GitHubClie
             Rules (the code must compile on the first try):
             - Every file path must be app/src/main/java/com/bro/app/<Name>.kt and start with: package com.bro.app
             - There must be a MainActivity.kt with: class MainActivity : ComponentActivity(), calling setContent { ... }.
-            - Write all imports explicitly. Do not use wildcard-only assumptions.
+            - Write all imports explicitly: every Row, Column, Box, Modifier, padding, dp, remember, getValue/setValue (for `by`) etc.
+              you use needs its import line. TopAppBar and other experimental Material3 APIs need @file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class) as the first line.
             - The ONLY libraries available: androidx.core:core-ktx, androidx.activity:activity-compose,
               kotlinx-coroutines-android, Compose ui, ui-graphics, foundation, animation, material3 (BOM 2024.10.01),
               lifecycle-viewmodel-compose and lifecycle-runtime-compose 2.8.7 (viewModel(), collectAsStateWithLifecycle()),

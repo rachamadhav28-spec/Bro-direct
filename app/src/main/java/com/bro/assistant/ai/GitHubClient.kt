@@ -86,6 +86,22 @@ class GitHubClient(private val prefs: PreferencesStore) {
         return String(Base64.decode(b64, Base64.DEFAULT), Charsets.UTF_8)
     }
 
+    /** Many files in ONE commit, so GitHub starts exactly one build. */
+    suspend fun commitFiles(repo: String, files: Map<String, String>, message: String) {
+        val full = fullName(repo)
+        val branch = JSONObject(call("GET", "/repos/$full")).getString("default_branch")
+        val head = JSONObject(call("GET", "/repos/$full/git/ref/heads/$branch")).getJSONObject("object").getString("sha")
+        val baseTree = JSONObject(call("GET", "/repos/$full/git/commits/$head")).getJSONObject("tree").getString("sha")
+        val entries = JSONArray()
+        files.forEach { (path, content) ->
+            entries.put(JSONObject().put("path", path.trim('/')).put("mode", "100644").put("type", "blob").put("content", content))
+        }
+        val tree = JSONObject(call("POST", "/repos/$full/git/trees", JSONObject().put("base_tree", baseTree).put("tree", entries))).getString("sha")
+        val commit = JSONObject(call("POST", "/repos/$full/git/commits",
+            JSONObject().put("message", message).put("tree", tree).put("parents", JSONArray().put(head)))).getString("sha")
+        call("PATCH", "/repos/$full/git/refs/heads/$branch", JSONObject().put("sha", commit))
+    }
+
     /** Creates or updates a file with a commit on the default branch. */
     suspend fun putFile(repo: String, path: String, content: String, message: String): String {
         val full = fullName(repo)
