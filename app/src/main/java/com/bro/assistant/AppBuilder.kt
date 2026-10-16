@@ -6,6 +6,7 @@ import com.bro.assistant.ai.GitHubClient
 import com.bro.assistant.ai.GitHubException
 import com.bro.assistant.memory.PreferencesStore
 import com.bro.assistant.memory.SessionMemory
+import kotlinx.coroutines.async
 import org.json.JSONObject
 
 /**
@@ -22,6 +23,7 @@ class AppBuilder(private val prefs: PreferencesStore, private val gh: GitHubClie
     // ---------- create ----------
 
     suspend fun create(description: String, repoOverride: String?, confirm: suspend (String) -> Boolean): String {
+        if (mode == "all") return createAll(description, repoOverride, confirm)
         com.bro.assistant.Activity.step("Writing the app code")
         val spec = produce(description)
         val repo = repoOverride ?: spec.repo
@@ -29,29 +31,68 @@ class AppBuilder(private val prefs: PreferencesStore, private val gh: GitHubClie
             "and start the APK build?"
         if (!confirm(q)) return "Okay, I didn't create it."
 
-        com.bro.assistant.Activity.step("Pushing the files to GitHub")
+        val full = publish(spec, repo)
+        val how = when (mode) { "api" -> "API keys"; "offline" -> "offline brain"; else -> "API keys + offline brain as a team" }
+        return "Done. I wrote your app (built with $how) and pushed it to GitHub:\nhttps://github.com/$full\n\n" +
+            "Please check GitHub Actions now: https://github.com/$full/actions\n" +
+            "It builds the APK in about 2 minutes. When it is green, say \"download apk of ${full.substringAfter('/')}\". " +
+            "If it fails, say \"fix the build of ${full.substringAfter('/')}\" and I will repair it."
+    }
+
+    /** Creates (or reuses) the repo, pushes scaffolding and code, and the workflow last so exactly one build starts. Returns owner/name. */
+    private suspend fun publish(spec: Spec, repo: String): String {
+        com.bro.assistant.Activity.step("Pushing ${repo.substringAfter('/')} to GitHub")
         try {
             gh.createRepo(repo, private = false, autoInit = true)
         } catch (e: GitHubException) {
             if (e.code != 422) throw e // 422 = already exists: reuse it
         }
-
         val owner = gh.login()
         val full = if ("/" in repo) repo else "$owner/$repo"
         val scaffold = AppTemplate.files(spec.name, AppTemplate.slug(repo))
-        // code and scaffolding first, the workflow last so exactly one build starts
         for ((path, content) in scaffold.filter { it.first != AppTemplate.WORKFLOW_PATH }) {
             gh.putFile(full, path, content, "Add $path via BRO")
         }
         for (f in spec.files) gh.putFile(full, f.path, CodeLint.fix(f.content), "Add ${f.path.substringAfterLast('/')} via BRO")
         val wf = scaffold.first { it.first == AppTemplate.WORKFLOW_PATH }
         gh.putFile(full, wf.first, wf.second, "Add build workflow via BRO")
+        return full
+    }
 
-        val how = when (mode) { "api" -> "API keys"; "offline" -> "offline brain"; else -> "API keys + offline brain as a team" }
-        return "Done. I wrote your app (built with $how) and pushed it to GitHub:\nhttps://github.com/$full\n\n" +
-            "Please check GitHub Actions now: https://github.com/$full/actions\n" +
-            "It builds the APK in about 2 minutes. When it is green, say \"download apk of ${full.substringAfter('/')}\". " +
-            "If it fails, say \"fix the build of ${full.substringAfter('/')}\" and I will repair it."
+    /** All three modes at the same time: API keys, offline brain and the team each build their own version in their own repo. */
+    private suspend fun createAll(description: String, repoOverride: String?, confirm: suspend (String) -> Boolean): String {
+        val cloud = cloudReady(); val off = offlineReady()
+        if (!cloud && !off) throw IllegalStateException("I need an API key or the offline brain to build an app. Add one in Settings.")
+        com.bro.assistant.Activity.step("All three at once: API keys and offline brain start together")
+        val notes = ArrayList<String>()
+        var specA: Spec? = null
+        var specB: Spec? = null
+        kotlinx.coroutines.coroutineScope {
+            val a = if (cloud) async { try { generate(description) } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { notes.add("API keys version failed: ${e.message?.take(80)}"); null } } else null
+            val b = if (off) async { try { generateOffline(description) } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { notes.add("Offline version failed: ${e.message?.take(80)}"); null } } else null
+            specA = a?.await(); specB = b?.await()
+        }
+        if (!cloud) notes.add("No API key, so there is no API keys or team version.")
+        if (!off) notes.add("No offline brain installed, so there is no offline or team version.")
+        val variants = ArrayList<Pair<String, Spec>>()
+        specA?.let { variants.add("api" to it) }
+        specB?.let { variants.add("offline" to it) }
+        if (specA != null && off) {
+            com.bro.assistant.Activity.step("Team: offline brain reviews the API keys version")
+            variants.add("team" to review(specA!!))
+        } else if (specA == null && specB != null && cloud) notes.add("Team version skipped: the cloud AI failed, so the team would equal the offline version.")
+        if (variants.isEmpty()) throw IllegalStateException("None of the three could write the app. " + notes.joinToString(" "))
+        val base = repoOverride ?: variants.first().second.repo
+        val names = variants.map { (k, _) -> "${AppTemplate.slug(base)}-$k" }
+        if (!confirm("Create ${variants.size} repos (${names.joinToString()}) with the three versions of the app and start their builds?")) return "Okay, I didn't create them."
+        val links = ArrayList<String>()
+        variants.forEachIndexed { i, (k, spec) ->
+            val full = publish(spec, names[i])
+            links.add("${when (k) { "api" -> "API keys"; "offline" -> "Offline brain"; else -> "Team" }}: https://github.com/$full")
+        }
+        return "Done. I built the app in all three modes at the same time and pushed each to its own repo:\n" + links.joinToString("\n") +
+            (if (notes.isNotEmpty()) "\n\nNote: " + notes.joinToString(" ") else "") +
+            "\n\nCheck GitHub Actions in each repo. Compare them and keep the best."
     }
 
     private val mode get() = prefs.appBuildMode

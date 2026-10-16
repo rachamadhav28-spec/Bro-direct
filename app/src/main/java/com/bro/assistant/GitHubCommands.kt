@@ -54,7 +54,7 @@ class GitHubCommands(private val context: Context, private val prefs: Preference
     private val renameFile = rx("^(?:rename|move)\\s+(?:file\\s+)?(\\S+)\\s+to\\s+(\\S+)\\s+$inRepo$")
     private val deleteFile = rx("^delete\\s+file\\s+(\\S+)\\s+$inRepo$")
 
-    private val engineRx = rx("^(?:please\\s+)?(?:use|set|switch\\s+to|build\\s+apps?\\s+with)\\s+(?:the\\s+)?(api(?:\\s+keys?)?|cloud|offline(?:\\s+brain)?|both(?:\\s+as\\s+a\\s+team)?|team|api\\s+keys?\\s+and\\s+offline(?:\\s+brain)?(?:\\s+as\\s+a\\s+team)?)(?:\\s+(?:for|when)\\s+(?:building|making|creating)\\s+apps?)?$")
+    private val engineRx = rx("^(?:please\\s+)?(?:use|set|switch\\s+to|build\\s+apps?\\s+with)\\s+(?:the\\s+)?(all(?:\\s+three)?(?:\\s+(?:modes|at\\s+once|at\\s+a\\s+time|at\\s+the\\s+same\\s+time))?|api(?:\\s+keys?)?|cloud|offline(?:\\s+brain)?|both(?:\\s+as\\s+a\\s+team)?|team|api\\s+keys?\\s+and\\s+offline(?:\\s+brain)?(?:\\s+as\\s+a\\s+team)?)(?:\\s+(?:for|when)\\s+(?:building|making|creating)\\s+apps?)?$")
     private val engineAsk = rx("^(?:which|what)\\s+(?:brain|engine|mode)\\s+(?:do\\s+you\\s+use\\s+)?(?:for\\s+)?(?:building|making|creating)\\s+apps?$")
 
     private val createApp = Regex(
@@ -136,16 +136,17 @@ class GitHubCommands(private val context: Context, private val prefs: Preference
     private suspend fun run(text: String, lastCode: String?, confirm: suspend (String) -> Boolean): String {
         engineRx.matchEntire(text)?.let { m ->
             val w = m.groupValues[1].lowercase()
-            val mode = when { w.startsWith("offline") -> "offline"; w.startsWith("api") && !w.contains("offline") -> "api"; w == "cloud" -> "api"; else -> "team" }
+            val mode = when { w.startsWith("offline") -> "offline"; w.startsWith("api") && !w.contains("offline") -> "api"; w == "cloud" -> "api"; w.contains("all") || w.contains("three") || w.contains("same") -> "all"; else -> "team" }
             prefs.appBuildMode = mode
             return when (mode) {
                 "api" -> "Okay. Apps will be written by your API keys only."
+                "all" -> "Okay. Every app will be built in all three modes at the same time (API keys, offline brain, team), each in its own repo so you can compare."
                 "offline" -> "Okay. Apps will be written by the offline brain only. It is small, so only simple one-screen apps will work."
                 else -> "Okay. Apps will be built by API keys and the offline brain as a team: the cloud AI writes, the offline brain reviews, and each covers for the other if one is missing or fails."
             }
         }
         engineAsk.matchEntire(text)?.let {
-            return "App building is set to: " + when (prefs.appBuildMode) { "api" -> "API keys only"; "offline" -> "offline brain only"; else -> "API keys and offline brain as a team" } +
+            return "App building is set to: " + when (prefs.appBuildMode) { "all" -> "all three at the same time"; "api" -> "API keys only"; "offline" -> "offline brain only"; else -> "API keys and offline brain as a team" } +
                 ". Say \"use api keys / use offline brain / use both as a team for building apps\" to change it."
         }
         listRepos.matchEntire(text)?.let {
@@ -182,16 +183,18 @@ class GitHubCommands(private val context: Context, private val prefs: Preference
         }
         createApp.matchEntire(text)?.let { m ->
             val msg = builder.create(m.groupValues[2].trim(), m.groupValues[1].ifBlank { null }, confirm)
-            val repoFull = Regex("github\\.com/([\\w.-]+/[\\w.-]+)").find(msg)?.groupValues?.get(1)
-            if (repoFull != null && msg.startsWith("Done")) {
-                // keep working after the answer: wait for the build, fix errors, tell the user when the APK is ready
-                val w = com.bro.assistant.watch.Watch(
-                    id = "appbuild-" + System.currentTimeMillis(), kind = "appbuild", goal = repoFull,
-                    intervalMin = 3, nextRun = System.currentTimeMillis() + 150_000L, maxRuns = 25
-                )
-                com.bro.assistant.watch.WatchStore.put(context, w)
-                com.bro.assistant.watch.WatchScheduler.schedule(context, w)
-                return msg + "\n\nI'll keep working in the background: I'll watch the build, repair any compile errors myself (up to 3 times) and send a notification when the APK is ready."
+            val repos = Regex("github\\.com/([\\w.-]+/[\\w.-]+)").findAll(msg).map { it.groupValues[1] }.filter { !it.endsWith("/actions") }.distinct().toList()
+            if (repos.isNotEmpty() && msg.startsWith("Done")) {
+                // keep working after the answer: wait for each build, fix errors, tell the user when the APK is ready
+                repos.forEachIndexed { i, repoFull ->
+                    val w = com.bro.assistant.watch.Watch(
+                        id = "appbuild-" + System.currentTimeMillis() + "-" + i, kind = "appbuild", goal = repoFull,
+                        intervalMin = 3, nextRun = System.currentTimeMillis() + 150_000L + i * 20_000L, maxRuns = 25
+                    )
+                    com.bro.assistant.watch.WatchStore.put(context, w)
+                    com.bro.assistant.watch.WatchScheduler.schedule(context, w)
+                }
+                return msg + "\n\nI'll keep working in the background: I'll watch ${if (repos.size > 1) "all ${repos.size} builds" else "the build"}, repair any compile errors myself (up to 3 times each) and send a notification when each APK is ready."
             }
             return msg
         }

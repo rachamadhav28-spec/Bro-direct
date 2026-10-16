@@ -131,13 +131,13 @@ fun OfflineBrainSection(prefs: PreferencesStore) {
         var buildMode by remember { mutableStateOf(prefs.appBuildMode) }
         Text("When BRO builds an app", color = Color.White, fontSize = 15.sp)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("api" to "API keys", "offline" to "Offline", "team" to "Team").forEach { (key, label) ->
+            listOf("api" to "API keys", "offline" to "Offline", "team" to "Team", "all" to "All 3").forEach { (key, label) ->
                 val pick = { buildMode = key; prefs.appBuildMode = key }
                 if (buildMode == key) Button(onClick = pick) { Text(label) } else OutlinedButton(onClick = pick) { Text(label) }
             }
         }
         Text(
-            "API keys = cloud AI only. Offline = the offline brain only (small one-screen apps). Team = the cloud AI writes, the offline brain reviews, and each covers for the other.",
+            "API keys = cloud AI only. Offline = the offline brain only (small one-screen apps). Team = the cloud AI writes, the offline brain reviews, and each covers for the other. All 3 = builds the API keys, offline and team versions at the same time, each in its own repo, so you can compare.",
             color = Color.Gray, fontSize = 12.sp
         )
         Text(
