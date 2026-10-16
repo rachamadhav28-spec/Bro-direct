@@ -164,7 +164,19 @@ class GitHubCommands(private val context: Context, private val prefs: Preference
             return "File $what in $repo: $path"
         }
         createApp.matchEntire(text)?.let { m ->
-            return builder.create(m.groupValues[2].trim(), m.groupValues[1].ifBlank { null }, confirm)
+            val msg = builder.create(m.groupValues[2].trim(), m.groupValues[1].ifBlank { null }, confirm)
+            val repoFull = Regex("github\\.com/([\\w.-]+/[\\w.-]+)").find(msg)?.groupValues?.get(1)
+            if (repoFull != null && msg.startsWith("Done")) {
+                // keep working after the answer: wait for the build, fix errors, tell the user when the APK is ready
+                val w = com.bro.assistant.watch.Watch(
+                    id = "appbuild-" + System.currentTimeMillis(), kind = "appbuild", goal = repoFull,
+                    intervalMin = 3, nextRun = System.currentTimeMillis() + 150_000L, maxRuns = 25
+                )
+                com.bro.assistant.watch.WatchStore.put(context, w)
+                com.bro.assistant.watch.WatchScheduler.schedule(context, w)
+                return msg + "\n\nI'll keep working in the background: I'll watch the build, repair any compile errors myself (up to 3 times) and send a notification when the APK is ready."
+            }
+            return msg
         }
         buildStatus.matchEntire(text)?.let { return builder.status(it.groupValues[1]) }
         whyFailed.matchEntire(text)?.let { return builder.whyFailed(it.groupValues[1]) }

@@ -55,6 +55,7 @@ object WatchRunner {
             val prefs = PreferencesStore(context)
 
             if (w.kind == "web") { webCheck(context, prefs, w); return } // no screen or unlock needed
+            if (w.kind == "appbuild") { appBuildCheck(context, prefs, w); return }
 
             // the accessibility service restarts with the process; give it a moment
             var tries = 0
@@ -89,6 +90,35 @@ object WatchRunner {
         } finally {
             try { if (wake.isHeld) wake.release() } catch (_: Exception) {}
             running.set(false)
+        }
+    }
+
+    /** After BRO makes an app: waits for the GitHub build, repairs compile errors itself (up to 3 times), tells you when the APK is ready. */
+    private suspend fun appBuildCheck(c: Context, prefs: PreferencesStore, w: Watch) {
+        w.runs += 1
+        val name = w.goal.substringAfter('/')
+        try {
+            val gh = com.bro.assistant.ai.GitHubClient(prefs)
+            val run = gh.latestRun(w.goal)
+            when {
+                run == null || run.status != "completed" -> later(c, w, "Still building.")
+                run.conclusion == "success" -> finish(c, w, "Your app \"$name\" is built and ready. Say \"download apk of $name\".")
+                else -> {
+                    val tries = w.memo.toIntOrNull() ?: 0
+                    if (tries >= 3) {
+                        finish(c, w, "The build of \"$name\" still fails after 3 automatic fixes. Say \"why did the build fail in $name\" and we'll look together.")
+                    } else {
+                        w.memo = (tries + 1).toString()
+                        val r = com.bro.assistant.AppBuilder(prefs, gh).fix(w.goal) { true }
+                        later(c, w, "Auto-fix ${tries + 1}: " + r.take(100))
+                    }
+                }
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            ErrorHandler.log("WatchRunner", "app build watch failed", e)
+            later(c, w, "Build check failed: ${e.message ?: e.javaClass.simpleName}")
         }
     }
 
