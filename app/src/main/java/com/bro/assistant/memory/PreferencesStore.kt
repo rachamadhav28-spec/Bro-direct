@@ -39,7 +39,7 @@ class PreferencesStore(context: Context) {
 
     var githubToken: String
         get() = str("github_token", "")
-        set(value) { sp.edit().putString("github_token", value.trim()).apply() }
+        set(value) { sp.edit().putString("github_token", value.filter { !it.isWhitespace() && it != '"' }).apply() }
 
     /** "auto" = Gemini when online, offline model as backup; "offline" = only the offline model. */
     var brainMode: String

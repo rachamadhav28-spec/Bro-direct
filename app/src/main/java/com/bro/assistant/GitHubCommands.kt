@@ -108,7 +108,7 @@ class GitHubCommands(private val context: Context, private val prefs: Preference
             run(text, lastCode, confirm)
         } catch (e: GitHubException) {
             when (e.code) {
-                401 -> "GitHub rejected the token. Check it in Settings."
+                401 -> "GitHub rejected the token (it starts with \"${prefs.githubToken.take(4)}\", ${prefs.githubToken.length} characters). It may be expired, deleted or copied wrongly. Make a new one at github.com/settings/tokens and paste it in Settings, GitHub token."
                 403 -> "GitHub says no: ${e.message}. The token may be missing a permission. " +
                     "For apps and builds it needs both \"repo\" and \"workflow\"."
                 404 -> "GitHub couldn't find that. Check the repo name and the token's access."
