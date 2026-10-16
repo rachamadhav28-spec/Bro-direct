@@ -5,6 +5,7 @@ import com.bro.assistant.ai.GeminiClient
 import com.bro.assistant.ai.GitHubClient
 import com.bro.assistant.ai.GitHubException
 import com.bro.assistant.memory.PreferencesStore
+import com.bro.assistant.memory.SessionMemory
 import org.json.JSONObject
 
 /**
@@ -22,7 +23,7 @@ class AppBuilder(private val prefs: PreferencesStore, private val gh: GitHubClie
 
     suspend fun create(description: String, repoOverride: String?, confirm: suspend (String) -> Boolean): String {
         com.bro.assistant.Activity.step("Writing the app code")
-        val spec = generate(description)
+        val spec = produce(description)
         val repo = repoOverride ?: spec.repo
         val q = "Create repo \"$repo\" with the Android app \"${spec.name}\" (${spec.files.size} Kotlin files) " +
             "and start the APK build?"
@@ -46,10 +47,78 @@ class AppBuilder(private val prefs: PreferencesStore, private val gh: GitHubClie
         val wf = scaffold.first { it.first == AppTemplate.WORKFLOW_PATH }
         gh.putFile(full, wf.first, wf.second, "Add build workflow via BRO")
 
-        return "Done. I wrote your app and pushed it to GitHub:\nhttps://github.com/$full\n\n" +
+        val how = when (mode) { "api" -> "API keys"; "offline" -> "offline brain"; else -> "API keys + offline brain as a team" }
+        return "Done. I wrote your app (built with $how) and pushed it to GitHub:\nhttps://github.com/$full\n\n" +
             "Please check GitHub Actions now: https://github.com/$full/actions\n" +
             "It builds the APK in about 2 minutes. When it is green, say \"download apk of ${full.substringAfter('/')}\". " +
             "If it fails, say \"fix the build of ${full.substringAfter('/')}\" and I will repair it."
+    }
+
+    private val mode get() = prefs.appBuildMode
+    private fun offlineReady() = com.bro.assistant.ai.LocalLlm.isInstalled(prefs.appContext)
+    private fun cloudReady() = prefs.apiKey.isNotBlank() || prefs.hasProviderKeys()
+
+    /** Part 1 = API keys, part 2 = offline brain, part 3 = both as a team. */
+    private suspend fun produce(description: String): Spec {
+        when (mode) {
+            "offline" -> return generateOffline(description)
+            "api" -> {
+                if (!cloudReady()) throw IllegalStateException("App building is set to API keys, but no API key is added. Add one in Settings, or say \"use both as a team for building apps\".")
+                return generate(description)
+            }
+        }
+        // team: the cloud AI writes, the offline brain reviews; each covers for the other when one is missing or fails
+        val spec = if (cloudReady()) {
+            try {
+                com.bro.assistant.Activity.step("Team: API keys write the app")
+                generate(description)
+            } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (e: Exception) {
+                if (!offlineReady()) throw e
+                com.bro.assistant.Activity.step("Team: cloud AI failed, offline brain takes over")
+                generateOffline(description)
+            }
+        } else if (offlineReady()) generateOffline(description)
+        else throw IllegalStateException("I need an API key or the offline brain to build an app. Add one in Settings.")
+        return if (offlineReady()) review(spec) else spec
+    }
+
+    /** Offline brain writes one small file. It has little memory, so only simple apps work in this mode. */
+    private suspend fun generateOffline(description: String): Spec {
+        if (!offlineReady()) throw IllegalStateException("The offline brain isn't installed. Add it in Settings, or use API keys.")
+        com.bro.assistant.Activity.step("Offline brain writes a small app")
+        val raw = gemini.generate(OFFLINE_PROMPT, "Write this app as ONE file: $description", json = false, engine = "offline")
+        val code = SessionMemory.extractLastCode(raw)
+        if (code == null || !code.contains("class MainActivity") || !code.contains("setContent")) {
+            throw IllegalStateException("The offline brain couldn't write a working app (it is small and has little memory). Try API keys or team mode, or ask for something simpler.")
+        }
+        val name = description.split(Regex("\\s+")).filter { it.length > 2 }.take(3).joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
+            .replace(Regex("[^A-Za-z0-9 ]"), "").ifBlank { "My App" }.take(30)
+        return Spec(name, AppTemplate.slug(name), listOf(GenFile(AppTemplate.SOURCE_DIR + "MainActivity.kt", CodeLint.fix(code))))
+    }
+
+    /** Second pair of eyes: the offline brain checks each small file and may correct it. Its change is kept only if it still looks like the same file. */
+    private suspend fun review(spec: Spec): Spec {
+        val out = ArrayList<GenFile>()
+        var checked = 0
+        for (f in spec.files) {
+            if (checked >= 4 || f.content.length > 5000) { out.add(f); continue }
+            checked++
+            val fname = f.path.substringAfterLast('/')
+            com.bro.assistant.Activity.step("Team: offline brain reviews $fname")
+            val fixed = try {
+                val raw = gemini.generate(REVIEW_PROMPT, "FILE $fname:\n```kotlin\n${f.content}\n```", json = false, engine = "offline")
+                SessionMemory.extractLastCode(raw)
+            } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { null }
+            val pkg = Regex("(?m)^package\\s+[\\w.]+").find(f.content)?.value
+            val funs = Regex("\\bfun\\s+\\w+").findAll(f.content).count()
+            val ok = fixed != null && (pkg == null || fixed.contains(pkg)) &&
+                fixed.length in (f.content.length * 8 / 10)..(f.content.length * 125 / 100) &&
+                Regex("\\bfun\\s+\\w+").findAll(fixed).count() >= funs &&
+                fixed.count { it == '{' } == fixed.count { it == '}' }
+            out.add(if (ok) GenFile(f.path, CodeLint.fix(fixed!!)) else f)
+        }
+        return spec.copy(files = out)
     }
 
     private suspend fun generate(description: String): Spec {
@@ -63,7 +132,7 @@ class AppBuilder(private val prefs: PreferencesStore, private val gh: GitHubClie
                     CREATE_PROMPT,
                     "Build this app: $description" + if (attempt == 2) "\n\nIMPORTANT: your last answer was not valid JSON. Reply with ONE complete JSON object only, " +
                         "escape every quote and newline inside file contents, and keep the app small (at most 6 files)." else "",
-                    json = true, timeoutMs = 150000
+                    json = true, timeoutMs = 150000, engine = "cloud"
                 )
                 obj = parseJson(raw)
                 files = readFiles(obj)
@@ -127,7 +196,8 @@ class AppBuilder(private val prefs: PreferencesStore, private val gh: GitHubClie
             }
         }
         val raw = gemini.generate(
-            FIX_PROMPT, "Build errors:\n$errors\n\nCurrent files:\n$current", json = true, timeoutMs = 150000
+            FIX_PROMPT, "Build errors:\n$errors\n\nCurrent files:\n$current", json = true, timeoutMs = 150000,
+            engine = if (mode == "offline") "offline" else if (mode == "team" && !cloudReady()) "offline" else "cloud"
         )
         val ai = readFiles(parseJson(raw), requireMain = false).associate { it.path to CodeLint.fix(it.content) }.toMutableMap()
         // certain repairs (missing imports, experimental opt-ins) on every file, whatever the AI changed
@@ -211,6 +281,19 @@ class AppBuilder(private val prefs: PreferencesStore, private val gh: GitHubClie
             You write small Android apps. Reply ONLY with JSON in this shape:
             {"app_name": "Short Name", "repo": "kebab-case-repo-name", "files": [{"path": "app/src/main/java/com/bro/app/MainActivity.kt", "content": "full file text"}]}
             $RULES
+        """.trimIndent()
+
+        private val OFFLINE_PROMPT = """
+            You write a tiny Android app in Kotlin with Jetpack Compose Material3, as ONE file in ONE ```kotlin code block and nothing else.
+            Start with: package com.bro.app. Include every import. Define class MainActivity : ComponentActivity() that calls setContent { }.
+            Use only androidx.activity.compose, androidx.compose.foundation, androidx.compose.material3, androidx.compose.runtime, androidx.compose.ui.
+            No other libraries, no icons, no network, no database. Keep it under 120 lines, dark theme, simple and correct.
+        """.trimIndent()
+
+        private val REVIEW_PROMPT = """
+            You review one Kotlin Compose file for compile errors (missing imports, wrong types, unclosed braces).
+            If it is correct, return it UNCHANGED. If you fix something, change as little as possible and return the COMPLETE file.
+            Reply with ONE ```kotlin code block and nothing else.
         """.trimIndent()
 
         private val FIX_PROMPT = """

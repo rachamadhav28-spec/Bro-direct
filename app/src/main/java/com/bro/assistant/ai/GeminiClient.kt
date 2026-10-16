@@ -27,9 +27,14 @@ class GeminiClient(private val prefs: PreferencesStore) {
         user: String,
         json: Boolean = true,
         timeoutMs: Int = if (json) 30000 else 90000,
-        skill: Skill? = null
+        skill: Skill? = null,
+        engine: String = "auto" // "cloud" = API keys only, "offline" = offline brain only, "auto" = settings decide
     ): String {
-        if (LocalLlm.willUse(prefs)) return LocalLlm.generate(prefs, system, user, json)
+        if (engine == "offline") {
+            if (!LocalLlm.isInstalled(prefs.appContext)) throw IllegalStateException("The offline brain isn't installed. Add it in Settings first.")
+            return LocalLlm.generate(prefs, system, user, json)
+        }
+        if (engine != "cloud" && LocalLlm.willUse(prefs)) return LocalLlm.generate(prefs, system, user, json)
         val hasGemini = prefs.apiKey.isNotBlank()
         val hasOthers = prefs.hasProviderKeys()
         var failure: Exception? = null
@@ -63,7 +68,7 @@ class GeminiClient(private val prefs: PreferencesStore) {
                 if (failure == null) failure = e
             }
         }
-        if (LocalLlm.isInstalled(prefs.appContext)) return LocalLlm.generate(prefs, system, user, json)
+        if (engine != "cloud" && LocalLlm.isInstalled(prefs.appContext)) return LocalLlm.generate(prefs, system, user, json)
         throw failure ?: AiException(401, "no AI key is set")
     }
 

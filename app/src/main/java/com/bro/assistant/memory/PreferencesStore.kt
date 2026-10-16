@@ -46,6 +46,11 @@ class PreferencesStore(context: Context) {
         get() = str("brain_mode", "auto")
         set(value) { sp.edit().putString("brain_mode", value).apply() }
 
+    /** Who writes apps: "api" (cloud AI only), "offline" (offline brain only) or "team" (cloud writes, offline brain reviews, each covers for the other). */
+    var appBuildMode: String
+        get() = str("app_build_mode", "team")
+        set(value) { sp.edit().putString("app_build_mode", value).apply() }
+
     /** Set when the chosen Gemini model rejects the "no thinking" option. */
     var thinkingUnsupported: Boolean
         get() = sp.getBoolean("thinking_unsupported", false)

@@ -54,6 +54,9 @@ class GitHubCommands(private val context: Context, private val prefs: Preference
     private val renameFile = rx("^(?:rename|move)\\s+(?:file\\s+)?(\\S+)\\s+to\\s+(\\S+)\\s+$inRepo$")
     private val deleteFile = rx("^delete\\s+file\\s+(\\S+)\\s+$inRepo$")
 
+    private val engineRx = rx("^(?:please\\s+)?(?:use|set|switch\\s+to|build\\s+apps?\\s+with)\\s+(?:the\\s+)?(api(?:\\s+keys?)?|cloud|offline(?:\\s+brain)?|both(?:\\s+as\\s+a\\s+team)?|team|api\\s+keys?\\s+and\\s+offline(?:\\s+brain)?(?:\\s+as\\s+a\\s+team)?)(?:\\s+(?:for|when)\\s+(?:building|making|creating)\\s+apps?)?$")
+    private val engineAsk = rx("^(?:which|what)\\s+(?:brain|engine|mode)\\s+(?:do\\s+you\\s+use\\s+)?(?:for\\s+)?(?:building|making|creating)\\s+apps?$")
+
     private val createApp = Regex(
         "^(?:create|build|make|generate|develop)\\s+(?:me\\s+)?(?:an?\\s+|the\\s+)?(?:[\\w-]+\\s+){0,3}?(?:android\\s+app|apk|app|application)\\b" +
             "(?:\\s+(?:in|into)\\s+(?:repo\\s+)?([\\w.-]+))?\\s*(?:that|which|for|of|to|called|named|with|having|:|-)?\\s*(?:(?:these|this|the)\\s+features?\\s*[:\\-]?\\s*)?(.{12,})$",
@@ -64,7 +67,7 @@ class GitHubCommands(private val context: Context, private val prefs: Preference
     private val fixBuild = rx("^fix\\s+(?:the\\s+)?build\\s+(?:of|for|in)\\s+$repoRef$")
     private val downloadApk = rx("^(?:download|get)\\s+(?:the\\s+)?apk\\s+(?:of|for|from)\\s+$repoRef$")
 
-    private val all get() = listOf(listRepos, createRepo, listFiles, readFile, issue, push, createApp, buildStatus, whyFailed, fixBuild, downloadApk,
+    private val all get() = listOf(engineRx, engineAsk, listRepos, createRepo, listFiles, readFile, issue, push, createApp, buildStatus, whyFailed, fixBuild, downloadApk,
         listIssues, commentIssue, listCommits, listPulls, newBranch, openPr, mergePr, editFile,
         renameRepo, deleteRepo, renameBranch, deleteBranch, renameFile, deleteFile)
 
@@ -131,6 +134,20 @@ class GitHubCommands(private val context: Context, private val prefs: Preference
     }
 
     private suspend fun run(text: String, lastCode: String?, confirm: suspend (String) -> Boolean): String {
+        engineRx.matchEntire(text)?.let { m ->
+            val w = m.groupValues[1].lowercase()
+            val mode = when { w.startsWith("offline") -> "offline"; w.startsWith("api") && !w.contains("offline") -> "api"; w == "cloud" -> "api"; else -> "team" }
+            prefs.appBuildMode = mode
+            return when (mode) {
+                "api" -> "Okay. Apps will be written by your API keys only."
+                "offline" -> "Okay. Apps will be written by the offline brain only. It is small, so only simple one-screen apps will work."
+                else -> "Okay. Apps will be built by API keys and the offline brain as a team: the cloud AI writes, the offline brain reviews, and each covers for the other if one is missing or fails."
+            }
+        }
+        engineAsk.matchEntire(text)?.let {
+            return "App building is set to: " + when (prefs.appBuildMode) { "api" -> "API keys only"; "offline" -> "offline brain only"; else -> "API keys and offline brain as a team" } +
+                ". Say \"use api keys / use offline brain / use both as a team for building apps\" to change it."
+        }
         listRepos.matchEntire(text)?.let {
             val list = client.repos()
             return if (list.isEmpty()) "You have no repositories." else "Your repositories:\n" + list.joinToString("\n")

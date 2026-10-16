@@ -128,6 +128,18 @@ fun OfflineBrainSection(prefs: PreferencesStore) {
             Text("Always use the offline brain (never Gemini)", color = Color.White, modifier = Modifier.weight(1f))
             Switch(checked = offlineOnly, onCheckedChange = { offlineOnly = it; prefs.brainMode = if (it) "offline" else "auto" })
         }
+        var buildMode by remember { mutableStateOf(prefs.appBuildMode) }
+        Text("When BRO builds an app", color = Color.White, fontSize = 15.sp)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("api" to "API keys", "offline" to "Offline", "team" to "Team").forEach { (key, label) ->
+                val pick = { buildMode = key; prefs.appBuildMode = key }
+                if (buildMode == key) Button(onClick = pick) { Text(label) } else OutlinedButton(onClick = pick) { Text(label) }
+            }
+        }
+        Text(
+            "API keys = cloud AI only. Offline = the offline brain only (small one-screen apps). Team = the cloud AI writes, the offline brain reviews, and each covers for the other.",
+            color = Color.Gray, fontSize = 12.sp
+        )
         Text(
             "Off = BRO uses Gemini when online and switches to the offline brain when there is no internet or no key.",
             color = Color.Gray, fontSize = 12.sp
