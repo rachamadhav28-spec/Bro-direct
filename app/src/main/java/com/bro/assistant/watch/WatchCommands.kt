@@ -9,8 +9,12 @@ object WatchCommands {
     private val listRx = Regex("^(?:watch(?:es)?\\s+status|list\\s+(?:my\\s+)?watch(?:es)?|what\\s+are\\s+you\\s+watching|show\\s+watch(?:es)?)[?.!]*$", RegexOption.IGNORE_CASE)
     private val everyRx = Regex("^(?:every|each)\\s+(\\d+)?\\s*(hours?|hrs?|minutes?|mins?)\\s*,?\\s*(.{6,})$", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
 
+    // "monitor X", "track X", "tell me when X": a standing job that researches the web by itself, no screen needed
+    private val webRx = Regex("^(?:please\\s+)?(?:keep\\s+monitoring|monitor|keep\\s+tracking|keep\\s+an\\s+eye\\s+on|notify\\s+me\\s+when|alert\\s+me\\s+when|let\\s+me\\s+know\\s+when|tell\\s+me\\s+when|watch\\s+for)\\s+(.{8,})$", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
+    private val everyInside = Regex("\\s*,?\\s*\\bevery\\s+(\\d+)?\\s*(hours?|hrs?|minutes?|mins?|day|days)\\b\\s*", RegexOption.IGNORE_CASE)
+
     /** Used by the command splitter so these sentences are not cut at "then". */
-    fun isWatchRequest(text: String): Boolean = looksLikeClaude(text) || everyRx.containsMatchIn(text.trim())
+    fun isWatchRequest(text: String): Boolean = looksLikeClaude(text) || everyRx.containsMatchIn(text.trim()) || webRx.matches(text.trim())
 
     private fun looksLikeClaude(t: String) =
         Regex("claude", RegexOption.IGNORE_CASE).containsMatchIn(t) &&
@@ -30,8 +34,29 @@ object WatchCommands {
             if (l.isEmpty()) return "I'm not watching anything right now."
             val fmt = java.text.SimpleDateFormat("h:mm a", java.util.Locale.getDefault())
             return "Watching:\n" + l.joinToString("\n") {
-                "- " + (if (it.kind == "claude") "Claude limit, then retry" else it.goal.take(50)) +
+                "- " + (if (it.kind == "claude") "Claude limit, then retry" else it.goal.take(50)) + (if (it.kind == "web") " [web]" else "") +
                     " (every ${it.intervalMin} min, next ${fmt.format(java.util.Date(it.nextRun))}, ${it.runs} checks so far)"
+            }
+        }
+        webRx.matchEntire(t)?.let { m ->
+            var goal = m.groupValues[1].trim().trimEnd('.', '!')
+            var interval = 180
+            everyInside.find(goal)?.let { e ->
+                val n = e.groupValues[1].ifEmpty { "1" }.toInt()
+                val u = e.groupValues[2].lowercase()
+                interval = when { u.startsWith("h") -> n * 60; u.startsWith("d") -> n * 1440; else -> n }
+                goal = goal.replace(e.value, " ").trim()
+            }
+            if (!looksLikeClaude(t)) {
+                if (interval < 15) return "For web research the shortest I'll check is every 15 minutes."
+                val prefs = com.bro.assistant.memory.PreferencesStore(c)
+                if (!prefs.hasBrain()) return "I need an AI brain for that: add your Gemini API key in Settings first."
+                val w = Watch(id = System.currentTimeMillis().toString(), kind = "web", goal = goal, intervalMin = interval, nextRun = System.currentTimeMillis(), maxRuns = 300)
+                WatchStore.put(c, w)
+                WatchRunner.startNow(c, w.id)
+                val every = if (interval % 1440 == 0) "${interval / 1440} day(s)" else if (interval % 60 == 0) "${interval / 60} hour(s)" else "$interval minutes"
+                return "Okay, I'm on it. Every $every I'll search the web and read pages about: ${goal.take(90)}. I only message you when something new matches, and I never repeat the same finding. " +
+                    "It works without unlocking the phone, but Android may pause it if battery saver is strict. Say \"list watches\" to see it or \"stop watching\" to end it."
             }
         }
         val interval: Int

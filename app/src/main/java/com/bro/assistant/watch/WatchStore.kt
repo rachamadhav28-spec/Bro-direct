@@ -7,13 +7,14 @@ import org.json.JSONObject
 /** A job BRO repeats on its own, such as "check Claude every hour and retry when the limit resets". */
 data class Watch(
     val id: String,
-    val kind: String,          // "claude" or "generic"
+    val kind: String,          // "claude", "web" or "generic"
     val goal: String,
     val intervalMin: Int,
     var nextRun: Long,
     var runs: Int = 0,
     val maxRuns: Int = 48,
-    var pending: Boolean = false   // a check was due while the phone was locked
+    var pending: Boolean = false,  // a check was due while the phone was locked
+    var memo: String = ""          // what a web watch already told you, so it never repeats itself
 )
 
 object WatchStore {
@@ -25,7 +26,7 @@ object WatchStore {
             try {
                 val o = arr.getJSONObject(it)
                 Watch(o.getString("id"), o.getString("kind"), o.getString("goal"), o.getInt("interval"),
-                    o.getLong("next"), o.optInt("runs", 0), o.optInt("max", 48), o.optBoolean("pending", false))
+                    o.getLong("next"), o.optInt("runs", 0), o.optInt("max", 48), o.optBoolean("pending", false), o.optString("memo", ""))
             } catch (e: Exception) { null }
         }
     }
@@ -35,7 +36,7 @@ object WatchStore {
         list.forEach {
             arr.put(JSONObject().put("id", it.id).put("kind", it.kind).put("goal", it.goal)
                 .put("interval", it.intervalMin).put("next", it.nextRun).put("runs", it.runs)
-                .put("max", it.maxRuns).put("pending", it.pending))
+                .put("max", it.maxRuns).put("pending", it.pending).put("memo", it.memo))
         }
         sp(c).edit().putString("list", arr.toString()).apply()
     }
