@@ -67,7 +67,7 @@ enum class Provider(
         "colab", "Colab Qwen (my own)", "https://colab.research.google.com/",
         "",
         listOf("qwen2.5-coder-7b"), listOf("qwen2.5-coder-7b"),
-        "free heavy coding on your own Colab; paste the line the notebook prints: https://xxxx.trycloudflare.com|SECRET"
+        "free heavy coding: your own Colab (paste https://xxxx.trycloudflare.com|SECRET) or a llama.cpp server on this phone (paste http://127.0.0.1:8080|x)"
     );
 }
 
