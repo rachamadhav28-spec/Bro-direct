@@ -101,6 +101,9 @@ fun OfflineBrainSection(prefs: PreferencesStore) {
             link = "https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it.litertlm"
         }) { Text("Gemma 4 E4B (better at code, 3.7 GB)") }
         OutlinedButton(onClick = {
+            link = "https://huggingface.co/litert-community/Qwen2.5-Coder-3B-Instruct/resolve/main/Qwen2.5_Coder_3B_It.litertlm"
+        }) { Text("Qwen2.5 Coder 3B (made for code, 3.4 GB)") }
+        OutlinedButton(onClick = {
             link = "https://huggingface.co/litert-community/Qwen3-4B/resolve/main/qwen3_4b_mixed_int4.litertlm"
         }) { Text("Qwen3 4B (good at code, 2.7 GB)") }
         OutlinedButton(onClick = {
