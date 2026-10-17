@@ -14,6 +14,7 @@ class GitHubExtras(private val c: GitHubClient) {
     private val repo = "([\\w.-]+(?:/[\\w.-]+)?)"
     private val inRepo = "(?:in|on|of|for|from)\\s+$repo"
 
+    private val fork = rx("^fork\\s+(?:repo(?:sitory)?\\s+)?([\\w.-]+/[\\w.-]+)(?:\\s+(?:as|named|to|called)\\s+([\\w.-]+))?$")
     private val visibility = rx("^make\\s+repo(?:sitory)?\\s+$repo\\s+(private|public)$")
     private val star = rx("^(star|unstar)\\s+repo(?:sitory)?\\s+$repo$")
     private val starred = rx("^list\\s+starred\\s+repos?$")
@@ -37,7 +38,7 @@ class GitHubExtras(private val c: GitHubClient) {
     private val workflows = rx("^list\\s+workflows\\s+$inRepo$")
     private val runWorkflow = rx("^run\\s+workflow\\s+(\\S+)\\s+$inRepo$")
 
-    private val all = listOf(visibility, star, starred, gist, gists, delGist, notes, readNotes, profile, follow, followers, keys,
+    private val all = listOf(fork, visibility, star, starred, gist, gists, delGist, notes, readNotes, profile, follow, followers, keys,
         hooks, delHook, codespaces, codespaceAct, packages, projects, discussions, rerun, workflows, runWorkflow)
 
     fun matches(t: String) = all.any { it.matches(t) }
@@ -47,6 +48,15 @@ class GitHubExtras(private val c: GitHubClient) {
         if (length() == 0) "Nothing there." else (0 until minOf(length(), 25)).joinToString("\n") { f(getJSONObject(it)) }
 
     suspend fun run(t: String, lastCode: String?, confirm: suspend (String) -> Boolean): String? {
+        fork.matchEntire(t)?.let { m ->
+            val src = m.groupValues[1]
+            val newName = m.groupValues[2].ifBlank { null }
+            if (!confirm("Fork $src into your GitHub account${if (newName != null) " as \"$newName\"" else ""}? You get a full copy of the code with its licence and history.")) return "Okay, I didn't fork it."
+            val body = JSONObject()
+            if (newName != null) body.put("name", newName)
+            val o = JSONObject(c.api("POST", "/repos/$src/forks", body))
+            return "Forked. Your copy: " + o.getString("html_url") + "\nGitHub finishes copying in a minute. Keep the LICENSE file; the licence asks you to keep it and to say what you changed."
+        }
         visibility.matchEntire(t)?.let { m ->
             val priv = m.groupValues[2].equals("private", true)
             if (!confirm("Make repo \"${m.groupValues[1]}\" ${if (priv) "private" else "public"}?")) return "Okay, I left it as it was."

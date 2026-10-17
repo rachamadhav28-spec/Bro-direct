@@ -352,6 +352,8 @@ class GitHubCommands(private val context: Context, private val prefs: Preference
             delete repo <name>
             delete branch <name> in <repo>
             delete file <path> in <repo>
+            fork repo <owner/repo>
+            fork repo <owner/repo> as <new name>
             make repo <repo> private
             make repo <repo> public
             star repo <repo>
