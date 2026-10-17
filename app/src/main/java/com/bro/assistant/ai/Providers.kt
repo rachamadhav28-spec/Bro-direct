@@ -62,6 +62,12 @@ enum class Provider(
         "https://api.cloudflare.com/client/v4/accounts/{ACCOUNT}/ai/v1/chat/completions",
         listOf("@cf/openai/gpt-oss-120b", "@cf/meta/llama-3.3-70b-instruct-fp8-fast"),
         emptyList(), "small jobs; key format is ACCOUNTID:TOKEN"
+    ),
+    COLAB(
+        "colab", "Colab Qwen (my own)", "https://colab.research.google.com/",
+        "",
+        listOf("qwen2.5-coder-7b"), listOf("qwen2.5-coder-7b"),
+        "free heavy coding on your own Colab; paste the line the notebook prints: https://xxxx.trycloudflare.com|SECRET"
     );
 }
 
@@ -102,6 +108,12 @@ object MultiAi {
     ): String = withContext(Dispatchers.IO) {
         var token = key
         var url = p.url
+        if (p == Provider.COLAB) {
+            val i = key.indexOf('|')
+            if (i < 8) throw AiException(401, "Colab key must look like https://xxxx.trycloudflare.com|SECRET")
+            url = key.substring(0, i).trim().trimEnd('/') + "/v1/chat/completions"
+            token = key.substring(i + 1).trim()
+        }
         if (p == Provider.CLOUDFLARE) {
             val i = key.indexOf(':')
             if (i < 1) throw AiException(401, "Cloudflare key must look like ACCOUNTID:TOKEN")
@@ -157,11 +169,11 @@ object Router {
 
     // Best first. Order comes from what each free service is good at.
     private val order: Map<Skill, List<Provider>> = mapOf(
-        Skill.CODE to listOf(Provider.OPENROUTER, Provider.GITHUB, Provider.NVIDIA, Provider.GEMINI, Provider.GROQ, Provider.CLOUDFLARE),
-        Skill.FAST to listOf(Provider.GROQ, Provider.GEMINI, Provider.NVIDIA, Provider.OPENROUTER, Provider.GITHUB, Provider.CLOUDFLARE),
-        Skill.LONG to listOf(Provider.GEMINI, Provider.OPENROUTER, Provider.NVIDIA, Provider.GITHUB, Provider.GROQ, Provider.CLOUDFLARE),
-        Skill.REASON to listOf(Provider.NVIDIA, Provider.GEMINI, Provider.GROQ, Provider.GITHUB, Provider.OPENROUTER, Provider.CLOUDFLARE),
-        Skill.GENERAL to listOf(Provider.GROQ, Provider.GEMINI, Provider.NVIDIA, Provider.GITHUB, Provider.OPENROUTER, Provider.CLOUDFLARE)
+        Skill.CODE to listOf(Provider.COLAB, Provider.OPENROUTER, Provider.GITHUB, Provider.NVIDIA, Provider.GEMINI, Provider.GROQ, Provider.CLOUDFLARE),
+        Skill.FAST to listOf(Provider.GROQ, Provider.GEMINI, Provider.NVIDIA, Provider.OPENROUTER, Provider.GITHUB, Provider.CLOUDFLARE, Provider.COLAB),
+        Skill.LONG to listOf(Provider.GEMINI, Provider.OPENROUTER, Provider.NVIDIA, Provider.GITHUB, Provider.GROQ, Provider.CLOUDFLARE, Provider.COLAB),
+        Skill.REASON to listOf(Provider.NVIDIA, Provider.GEMINI, Provider.GROQ, Provider.GITHUB, Provider.OPENROUTER, Provider.CLOUDFLARE, Provider.COLAB),
+        Skill.GENERAL to listOf(Provider.GROQ, Provider.GEMINI, Provider.NVIDIA, Provider.GITHUB, Provider.OPENROUTER, Provider.CLOUDFLARE, Provider.COLAB)
     )
 
     // a provider that said "too many requests" rests for a minute
@@ -195,6 +207,8 @@ object Router {
             } catch (e: Exception) {
                 ErrorHandler.log("Router", "${p.label} failed for ${skill.label}", e)
                 if (e is AiException && e.code == 429) cooldown[p.id] = System.currentTimeMillis() + 60_000
+                // the Colab notebook is only on while the user runs it: when it is off, skip it for 90 seconds
+                if (p == Provider.COLAB) cooldown[p.id] = System.currentTimeMillis() + 90_000
                 last = e
             }
         }

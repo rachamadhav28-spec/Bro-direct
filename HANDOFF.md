@@ -62,3 +62,11 @@ Goal: BRO works with NO cloud AI key (no Gemini, no quota limits). Plan:
 - Restyle Settings/History screens to match the futuristic look; futuristic orb for the mic.
 - BRO cannot yet delete files or close issues on GitHub.
 - Gemini free tier rate limits make long agent runs slow; the offline engine above is the proper fix.
+
+## Colab Qwen provider (added 2026-10-17)
+- `Provider.COLAB` in ai/Providers.kt: the user's own free Colab runs Qwen2.5-Coder-7B-Instruct (GGUF, q6_k) with llama-cpp-python's OpenAI-style
+  server, exposed through a trycloudflare tunnel. Notebook: `colab/BRO_Qwen_Coder_Server.ipynb` (Run all, it prints `https://xxxx.trycloudflare.com|SECRET`).
+- The Settings key field for "Colab Qwen" takes that whole line (URL|SECRET). The URL changes every Colab session, so the line must be pasted again.
+- Router: Colab is FIRST for coding, LAST for everything else. When it is off (tunnel dead) it rests for 90 s so other providers are not slowed.
+- Not tested on a real Colab by Claude (no GPU/network for it in the cloud container): the wheel index names (cu121..cu124) and tunnel step may need fixing.
+- Still to do for 10,000-line projects: the plan -> one file at a time -> GitHub build -> fix loop ("build big <project>").
