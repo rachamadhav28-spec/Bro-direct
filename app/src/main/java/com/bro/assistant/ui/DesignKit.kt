@@ -50,22 +50,14 @@ import androidx.compose.ui.unit.sp
 import com.bro.assistant.BroState
 import com.bro.assistant.ui.theme.BroColors
 
-/** Quiet backdrop: a soft gradient and one glow. (The animated HUD stays on the lock and call screens.) */
+/** Clean backdrop: one flat colour that follows the light or dark theme. */
 @Composable
 fun CalmBackground(content: @Composable () -> Unit) {
-    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF000000), Color(0xFF050505))))) {
-        Canvas(Modifier.fillMaxSize()) {
-            drawCircle(
-                Brush.radialGradient(listOf(NeonViolet.copy(alpha = 0.16f), Color.Transparent), center = Offset(size.width * 0.5f, 0f), radius = size.width * 0.9f),
-                radius = size.width * 0.9f, center = Offset(size.width * 0.5f, 0f)
-            )
-        }
-        content()
-    }
+    Box(Modifier.fillMaxSize().background(BroColors.Background)) { content() }
 }
 
 fun stateColor(s: BroState): Color = when (s) {
-    BroState.IDLE -> Color(0xFF8EA1BD)
+    BroState.IDLE -> BroColors.TextSecondary
     BroState.LISTENING -> BroColors.Listening
     BroState.THINKING -> BroColors.Thinking
     BroState.EXECUTING -> BroColors.Executing
@@ -105,7 +97,7 @@ fun StarterCard(title: String, hint: String, onClick: () -> Unit) {
     val sc by animateFloatAsState(if (pressed) 0.97f else 1f, label = "press")
     Column(
         Modifier.fillMaxWidth().graphicsLayer { scaleX = sc; scaleY = sc }.heightIn(min = 56.dp).clip(RoundedCornerShape(16.dp))
-            .background(BroColors.Surface2).border(1.dp, NeonCyan.copy(alpha = 0.35f), RoundedCornerShape(16.dp))
+            .background(BroColors.Panel).border(1.dp, BroColors.Outline, RoundedCornerShape(16.dp))
             .clickable(interactionSource = src, indication = LocalIndication.current, onClickLabel = title) { onClick() }.padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.Center
     ) {
@@ -147,9 +139,13 @@ fun RoundAction(icon: RoundIcon, fill: Color, label: String, onClick: () -> Unit
     }
 }
 
-/** The BRO name with the theme gradient and a soft glow. */
+/** The BRO name. Plain and confident; the neon gradient and glow only appear with the HUD animation on. */
 @Composable
 fun BroWordmark(size: androidx.compose.ui.unit.TextUnit, spacing: androidx.compose.ui.unit.TextUnit = 4.sp) {
+    if (!com.bro.assistant.ui.theme.ThemeState.hud || !com.bro.assistant.ui.theme.ThemeState.dark) {
+        Text("BRO", fontSize = size, fontWeight = FontWeight.Bold, letterSpacing = spacing, color = BroColors.TextPrimary)
+        return
+    }
     val glow = breathing(2600)
     Text(
         "BRO", fontSize = size, fontWeight = FontWeight.Black, letterSpacing = spacing,

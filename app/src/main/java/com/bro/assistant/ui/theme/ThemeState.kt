@@ -9,9 +9,22 @@ import com.bro.assistant.memory.PreferencesStore
 
 /** The colours and motion the owner picked. Compose reads these, so changing them updates every screen at once. */
 object ThemeState {
-    var primary by mutableStateOf(Color(0xFF00E5FF))
-    var secondary by mutableStateOf(Color(0xFF9D6BFF))
-    var hud by mutableStateOf(true)
+    var primary by mutableStateOf(Color(0xFFD97757))
+    var secondary by mutableStateOf(Color(0xFFE0A458))
+    var hud by mutableStateOf(false)
+    /** "system" follows the phone, or "light" / "dark" (black). */
+    var mode by mutableStateOf("system")
+    var systemDark by mutableStateOf(true)
+    val dark: Boolean get() = when (mode) { "light" -> false; "dark" -> true; else -> systemDark }
+    fun setMode(m: String) { mode = m; store?.themeMode = m }
+    /** A colour that stays readable on the light background: dark enough, same hue. */
+    fun readableOnLight(c: Color): Color {
+        var x = c
+        var i = 0
+        while (lum(x) > 0.30f && i < 8) { x = androidx.compose.ui.graphics.lerp(x, Color.Black, 0.12f); i++ }
+        return x
+    }
+    private fun lum(c: Color) = 0.2126f * c.red + 0.7152f * c.green + 0.0722f * c.blue
     var layout by mutableStateOf("auto")
     /** Whole-app zoom: 0.5 to 1.5. Below 1 more fits on screen, above 1 everything is bigger. */
     var zoom by mutableStateOf(1f)
@@ -29,6 +42,8 @@ object ThemeState {
 
     class Preset(val name: String, val a: Long, val b: Long)
     val presets = listOf(
+        Preset("Clay", 0xFFD97757, 0xFFE0A458),
+        Preset("Ocean", 0xFF4C8DFF, 0xFF7CC4FF),
         Preset("Deep space", 0xFF00E5FF, 0xFF9D6BFF),
         Preset("Electric blue", 0xFF2979FF, 0xFF00B0FF),
         Preset("Magenta", 0xFFFF4DA6, 0xFFFFA726),
@@ -38,7 +53,7 @@ object ThemeState {
     )
 
     fun load(p: PreferencesStore) {
-        primary = Color(p.accentPrimary.toInt()); secondary = Color(p.accentSecondary.toInt()); hud = p.hudAnimation; layout = p.layoutMode; store = p; zoom = p.uiZoom.coerceIn(0.5f, 1.5f)
+        primary = Color(p.accentPrimary.toInt()); secondary = Color(p.accentSecondary.toInt()); hud = p.hudAnimation; mode = p.themeMode; layout = p.layoutMode; store = p; zoom = p.uiZoom.coerceIn(0.5f, 1.5f)
     }
 
     fun set(p: PreferencesStore, a: Color, b: Color) {

@@ -132,20 +132,24 @@ class PreferencesStore(context: Context) {
         set(value) { sp.edit().putBoolean("learn_nightly", value).apply() }
     /** Theme colours (ARGB as unsigned long) and the moving HUD background. */
     var accentPrimary: Long
-        get() = sp.getLong("accent_primary", 0xFF00E5FFL)
+        get() = sp.getLong("accent_primary", 0xFFD97757L)
         set(value) { sp.edit().putLong("accent_primary", value).apply() }
     var accentSecondary: Long
-        get() = sp.getLong("accent_secondary", 0xFF9D6BFFL)
+        get() = sp.getLong("accent_secondary", 0xFFE0A458L)
         set(value) { sp.edit().putLong("accent_secondary", value).apply() }
     /** "auto" (wide screens get the desktop layout), "phone" or "desktop". */
     var layoutMode: String
         get() = sp.getString("layout_mode", "auto") ?: "auto"
         set(value) { sp.edit().putString("layout_mode", value).apply() }
+    /** "system", "light" or "dark". */
+    var themeMode: String
+        get() = sp.getString("theme_mode", "system") ?: "system"
+        set(value) { sp.edit().putString("theme_mode", value).apply() }
     var uiZoom: Float
         get() = sp.getFloat("ui_zoom", 1f)
         set(value) { sp.edit().putFloat("ui_zoom", value).apply() }
     var hudAnimation: Boolean
-        get() = sp.getBoolean("hud_animation", true)
+        get() = sp.getBoolean("hud_animation", false)
         set(value) { sp.edit().putBoolean("hud_animation", value).apply() }
 
     /** Study non-stop until stopped (restarts after the phone restarts). */

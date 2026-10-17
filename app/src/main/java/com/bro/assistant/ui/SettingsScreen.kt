@@ -186,7 +186,7 @@ fun SettingsScreen(
         Text(
             if (lockOn) "BRO lock is ON: " + lockType + ". It is asked when BRO opens, after you were away 30 seconds, and before risky taps in other apps."
             else "BRO lock is OFF. Choose a PIN, password or pattern. It belongs to BRO only, not your phone.",
-            color = if (lockOn) Color(0xFF66BB6A) else Color.LightGray, fontSize = 13.sp
+            color = if (lockOn) BroColors.Success else BroColors.TextSecondary, fontSize = 13.sp
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = { onLockSetup("pin") }) { Text("PIN") }
@@ -199,11 +199,11 @@ fun SettingsScreen(
                 SwitchRow("Also unlock with fingerprint", bio) { bio = it; prefs.lockBiometric = it }
             }
         }
-        Text("Signed in as ${prefs.accountEmail.ifBlank { "(not signed in)" }}", color = Color.White, fontSize = 13.sp)
+        Text("Signed in as ${prefs.accountEmail.ifBlank { "(not signed in)" }}", color = BroColors.TextPrimary, fontSize = 13.sp)
         val mailOn = remember(tick) { com.bro.assistant.security.MailRecovery.isConfigured(prefs) }
         Text(
             if (mailOn) "Forgot-lock recovery by email: ON. A code is sent to your Gmail." else "Forgot-lock recovery by email: OFF.",
-            color = if (mailOn) Color(0xFF66BB6A) else Color.LightGray, fontSize = 13.sp
+            color = if (mailOn) BroColors.Success else BroColors.TextSecondary, fontSize = 13.sp
         )
         OutlinedButton(onClick = onMailSetup) { Text(if (mailOn) "Email recovery settings" else "Set up email recovery") }
         Text("If you forget the lock, the lock screen's Forgot link accepts your fingerprint or the emailed code.", color = Color.Gray, fontSize = 12.sp)
@@ -230,7 +230,7 @@ fun SettingsScreen(
         SectionHeader("Voice", openSection == "Voice") { openSection = if (openSection == "Voice") "" else "Voice" }
         if (openSection == "Voice") {
         SwitchRow("Speak replies", speakReplies) { speakReplies = it; saved = false }
-        Text("Voice: $voiceLabel", color = Color.White)
+        Text("Voice: $voiceLabel", color = BroColors.TextPrimary)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = {
                 val name = vm.tts.nextVoice()
@@ -241,7 +241,7 @@ fun SettingsScreen(
 
         Text(
             "Speech language: " + if (speechLang.startsWith("te")) "Telugu (te-IN)" else "English / Tenglish (en-IN)",
-            color = Color.White
+            color = BroColors.TextPrimary
         )
         OutlinedButton(onClick = {
             speechLang = if (speechLang.startsWith("te")) "en-IN" else "te-IN"
@@ -266,7 +266,7 @@ fun SettingsScreen(
                 }) { Text("Save phrase") }
                 if (voiceSet) OutlinedButton(onClick = { com.bro.assistant.security.VoiceLock.clear(ctx); voiceSet = false; voiceMsg = "Voice unlock removed." }) { Text("Remove") }
             }
-            if (voiceMsg.isNotEmpty()) Text(voiceMsg, color = Color.LightGray, fontSize = 12.sp)
+            if (voiceMsg.isNotEmpty()) Text(voiceMsg, color = BroColors.TextSecondary, fontSize = 12.sp)
         }
 
         }
@@ -291,10 +291,10 @@ fun SettingsScreen(
         if (openSection == "BRO's memory") {
         var facts by remember(tick) { mutableStateOf(com.bro.assistant.memory.MemoryStore.all(ctx)) }
         Text("Say \"remember that my mom's number is ...\", \"remember my timetable: ...\", or \"what do you remember\". BRO never stores passwords, PINs or OTPs.", color = Color.Gray, fontSize = 12.sp)
-        if (facts.isEmpty()) Text("Nothing saved yet.", color = Color.LightGray, fontSize = 13.sp)
+        if (facts.isEmpty()) Text("Nothing saved yet.", color = BroColors.TextSecondary, fontSize = 13.sp)
         facts.forEach { f ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text(f.text, color = Color.White, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                Text(f.text, color = BroColors.TextPrimary, fontSize = 13.sp, modifier = Modifier.weight(1f))
                 TextButton(onClick = { com.bro.assistant.memory.MemoryStore.remove(ctx, f.id); facts = com.bro.assistant.memory.MemoryStore.all(ctx) }) { Text("Delete") }
             }
         }
@@ -372,7 +372,7 @@ fun SettingsScreen(
                 }
             }) { Text("Test call") }
         }
-        if (callMsg.isNotEmpty()) Text(callMsg, color = Color.LightGray, fontSize = 12.sp)
+        if (callMsg.isNotEmpty()) Text(callMsg, color = BroColors.TextSecondary, fontSize = 12.sp)
 
         }
         SectionHeader("Backup and restore", openSection == "Backup and restore") { openSection = if (openSection == "Backup and restore") "" else "Backup and restore" }
@@ -392,12 +392,22 @@ fun SettingsScreen(
                     else importLauncher.launch(arrayOf("*/*"))
                 }) { Text("Restore") }
             }
-            if (backupMsg.isNotEmpty()) Text(backupMsg, color = Color.LightGray, fontSize = 12.sp)
+            if (backupMsg.isNotEmpty()) Text(backupMsg, color = BroColors.TextSecondary, fontSize = 12.sp)
         }
         SectionHeader("Look and animation", openSection == "Look and animation") { openSection = if (openSection == "Look and animation") "" else "Look and animation" }
         if (openSection == "Look and animation") {
+            Text("Theme", color = BroColors.TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("system" to "Auto", "light" to "Light", "dark" to "Dark").forEach { (key, label) ->
+                    val on = com.bro.assistant.ui.theme.ThemeState.mode == key
+                    val pick = { com.bro.assistant.ui.theme.ThemeState.setMode(key) }
+                    if (on) Button(onClick = pick) { Text(label) } else OutlinedButton(onClick = pick) { Text(label) }
+                }
+            }
+            Text("Auto follows your phone. Dark is true black, easy on the eyes and the battery.", color = BroColors.TextSecondary, fontSize = 12.sp)
+            Spacer(Modifier.height(8.dp))
             var hudOn by remember { mutableStateOf(com.bro.assistant.ui.theme.ThemeState.hud) }
-            SwitchRow("Moving HUD background (grid, particles, rings)", hudOn) { on ->
+            SwitchRow("Sci-fi HUD background (dark theme only)", hudOn) { on ->
                 hudOn = on; com.bro.assistant.ui.theme.ThemeState.hud = on; prefs.hudAnimation = on
             }
             var deep by remember { mutableStateOf(prefs.deepThink) }
@@ -460,7 +470,7 @@ fun SettingsScreen(
                 else { com.bro.assistant.ui.theme.ThemeState.set(prefs, a, b); hexMsg = "Applied." }
             }) { Text("Apply my colours") }
             if (hexMsg.isNotEmpty()) Text(hexMsg, color = BroColors.TextSecondary, fontSize = 12.sp)
-            OutlinedButton(onClick = { com.bro.assistant.ui.theme.ThemeState.set(prefs, Color(0xFF00E5FF), Color(0xFF9D6BFF)) }) { Text("Back to Deep space") }
+            OutlinedButton(onClick = { com.bro.assistant.ui.theme.ThemeState.set(prefs, Color(0xFFD97757), Color(0xFFE0A458)) }) { Text("Back to Clay") }
         }
         SectionHeader("BRO learns", openSection == "BRO learns") { openSection = if (openSection == "BRO learns") "" else "BRO learns" }
         if (openSection == "BRO learns") {
@@ -476,7 +486,7 @@ fun SettingsScreen(
             Text("BRO writes study notes on coding, Telugu and Tenglish using your AI keys or the offline brain, and reads them before answering. It only runs when the phone is idle. Notes saved: $notes", color = Color.Gray, fontSize = 12.sp)
             val studyRunning = com.bro.assistant.learn.StudyBus.running
             if (studyRunning) {
-                Text("Studying non-stop: ${com.bro.assistant.learn.StudyBus.current} (learned ${com.bro.assistant.learn.StudyBus.learnedThisRun} this run)", color = Color.LightGray, fontSize = 12.sp)
+                Text("Studying non-stop: ${com.bro.assistant.learn.StudyBus.current} (learned ${com.bro.assistant.learn.StudyBus.learnedThisRun} this run)", color = BroColors.TextSecondary, fontSize = 12.sp)
                 Button(onClick = { com.bro.assistant.learn.StudyService.stop(ctx) }) { Text("Stop studying") }
             } else {
                 Button(onClick = { com.bro.assistant.learn.StudyService.start(ctx) }) { Text("Study non-stop (24/7)") }
@@ -485,7 +495,7 @@ fun SettingsScreen(
             val runs = remember(tick, studyRunning) { com.bro.assistant.learn.StudyLog.recent(ctx, 5) }
             if (runs.isNotEmpty()) {
                 Text("After studying, BRO saved notes and used them in answers. Recent runs:", color = Color.Gray, fontSize = 12.sp)
-                runs.forEach { Text("• " + java.text.SimpleDateFormat("d MMM HH:mm", java.util.Locale.US).format(java.util.Date(it.time)) + ": " + it.topics.joinToString(", "), color = Color.LightGray, fontSize = 12.sp) }
+                runs.forEach { Text("• " + java.text.SimpleDateFormat("d MMM HH:mm", java.util.Locale.US).format(java.util.Date(it.time)) + ": " + it.topics.joinToString(", "), color = BroColors.TextSecondary, fontSize = 12.sp) }
             }
             Button(enabled = !learning, onClick = {
                 learning = true; learnMsg = "Studying..."
@@ -495,7 +505,7 @@ fun SettingsScreen(
                     notes = com.bro.assistant.learn.LearnStore.count(ctx); learning = false
                 }
             }) { Text("Learn now") }
-            if (learnMsg.isNotEmpty()) Text(learnMsg, color = Color.LightGray, fontSize = 12.sp)
+            if (learnMsg.isNotEmpty()) Text(learnMsg, color = BroColors.TextSecondary, fontSize = 12.sp)
             Button(onClick = { com.bro.assistant.learn.LearnStore.clear(ctx); notes = 0 }) { Text("Forget lessons") }
         }
         SectionHeader("Floating circle", openSection == "Floating circle") { openSection = if (openSection == "Floating circle") "" else "Floating circle" }
@@ -567,7 +577,7 @@ private fun SectionHeader(text: String, open: Boolean, onClick: () -> Unit) {
         Modifier.fillMaxWidth()
             .heightIn(min = 56.dp)
             .clip(RoundedCornerShape(16.dp))
-            .background(if (open) Color(0xFF14233A) else BroColors.Surface2)
+            .background(if (open) BroColors.AccentSoft else BroColors.Surface2)
             .border(1.dp, if (open) BroColors.Accent.copy(alpha = 0.5f) else BroColors.Outline, RoundedCornerShape(16.dp))
             .clickable(onClickLabel = if (open) "Close $text" else "Open $text") { onClick() }
             .padding(horizontal = 16.dp, vertical = 12.dp),
@@ -587,7 +597,7 @@ private fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Un
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(label, color = Color.White, modifier = Modifier.weight(1f))
+        Text(label, color = BroColors.TextPrimary, modifier = Modifier.weight(1f))
         Switch(checked = checked, onCheckedChange = onChange)
     }
 }
@@ -599,7 +609,7 @@ private fun PermRow(label: String, granted: Boolean, onClick: () -> Unit) {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text("$label: ${if (granted) "On" else "Off"}", color = Color.White, modifier = Modifier.weight(1f))
+        Text("$label: ${if (granted) "On" else "Off"}", color = BroColors.TextPrimary, modifier = Modifier.weight(1f))
         if (!granted) OutlinedButton(onClick = onClick) { Text("Allow") }
     }
 }

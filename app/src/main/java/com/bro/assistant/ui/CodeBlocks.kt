@@ -74,7 +74,7 @@ private fun AnnotatedString.Builder.appendInline(line: String) {
             append(m.groupValues[1].replace("`", ""))
             pop()
         } else {
-            pushStyle(SpanStyle(fontFamily = FontFamily.Monospace, background = Color(0x33FFFFFF)))
+            pushStyle(SpanStyle(fontFamily = FontFamily.Monospace, background = BroColors.Outline))
             append(m.groupValues[2])
             pop()
         }
@@ -137,8 +137,8 @@ fun MessageBody(text: String, markdown: Boolean = true) {
         for (part in parts) {
             when (part) {
                 is Part.Plain -> SelectionContainer {
-                    if (markdown) Text(remember(part.text) { markdownLite(part.text) }, color = Color.White, fontSize = 15.sp)
-                    else Text(part.text, color = Color.White, fontSize = 15.sp)
+                    if (markdown) Text(remember(part.text) { markdownLite(part.text) }, color = BroColors.TextPrimary, fontSize = 15.sp)
+                    else Text(part.text, color = BroColors.TextPrimary, fontSize = 15.sp)
                 }
                 is Part.Code -> CodeCard(
                     block = part.block,
@@ -161,7 +161,7 @@ private fun CodeCard(block: CodeBlock, onDownload: () -> Unit) {
     val shown = if (long && !expanded) allLines.take(PREVIEW_LINES).joinToString("\n") else block.code
 
     Surface(
-        color = Color(0xFF0B1220),
+        color = BroColors.CodeBg,
         shape = RoundedCornerShape(10.dp),
         border = BorderStroke(1.dp, BroColors.Accent.copy(alpha = 0.5f))
     ) {
@@ -174,7 +174,7 @@ private fun CodeCard(block: CodeBlock, onDownload: () -> Unit) {
                     Text(block.fileName, color = BroColors.Accent, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                     Text(
                         (if (block.lang.isBlank()) "code" else block.lang) + " · ${allLines.size} lines",
-                        color = Color.LightGray, fontSize = 11.sp
+                        color = Color(0xFF9AA7BD), fontSize = 11.sp
                     )
                 }
                 TextButton(onClick = {
@@ -188,7 +188,7 @@ private fun CodeCard(block: CodeBlock, onDownload: () -> Unit) {
                     shown,
                     fontFamily = FontFamily.Monospace,
                     fontSize = 12.sp,
-                    color = Color(0xFFE6EDF3),
+                    color = BroColors.CodeText,
                     softWrap = false,
                     modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(12.dp)
                 )

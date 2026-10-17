@@ -21,8 +21,8 @@ import com.bro.assistant.ui.theme.BroColors
 import kotlin.math.PI
 import kotlin.math.sin
 
-val NeonCyan: Color get() = com.bro.assistant.ui.theme.ThemeState.primary
-val NeonViolet: Color get() = com.bro.assistant.ui.theme.ThemeState.secondary
+val NeonCyan: Color get() = BroColors.Accent
+val NeonViolet: Color get() = if (com.bro.assistant.ui.theme.ThemeState.dark) com.bro.assistant.ui.theme.ThemeState.secondary else com.bro.assistant.ui.theme.ThemeState.readableOnLight(com.bro.assistant.ui.theme.ThemeState.secondary)
 
 /**
  * Animated sci-fi backdrop: drifting neon grid, floating particles, a slow scan line and
@@ -30,7 +30,7 @@ val NeonViolet: Color get() = com.bro.assistant.ui.theme.ThemeState.secondary
  */
 @Composable
 fun FuturisticBackground(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    if (!com.bro.assistant.ui.theme.ThemeState.hud) { CalmBackground(content); return }
+    if (!com.bro.assistant.ui.theme.ThemeState.hud || !com.bro.assistant.ui.theme.ThemeState.dark) { CalmBackground(content); return }
     val t = rememberInfiniteTransition(label = "hud")
     val drift by t.animateFloat(0f, 1f, infiniteRepeatable(tween(14000, easing = LinearEasing)), label = "drift")
     val scan by t.animateFloat(0f, 1f, infiniteRepeatable(tween(6000, easing = LinearEasing)), label = "scan")

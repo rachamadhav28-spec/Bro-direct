@@ -1,5 +1,6 @@
 package com.bro.assistant.ui
 
+import com.bro.assistant.ui.theme.BroColors
 import android.app.DownloadManager
 import android.content.Context
 import android.net.Uri
@@ -85,7 +86,7 @@ fun OfflineBrainSection(prefs: PreferencesStore) {
         Text(
             if (installed) "Offline brain: installed (" + (LocalLlm.modelFile(ctx).length() / 1_000_000) + " MB)"
             else "Offline brain: not installed",
-            color = if (installed) Color(0xFF66BB6A) else Color.LightGray
+            color = if (installed) BroColors.Success else BroColors.TextSecondary
         )
         Text(
             "Lets BRO think on the phone with no internet and no API key. One-time download (use Wi-Fi). " +
@@ -136,13 +137,13 @@ fun OfflineBrainSection(prefs: PreferencesStore) {
                 LocalLlm.deleteAll(ctx); installed = false; status = "Offline brain removed."
             }) { Text("Remove") }
         }
-        if (status.isNotEmpty()) Text(status, color = Color.LightGray, fontSize = 13.sp)
+        if (status.isNotEmpty()) Text(status, color = BroColors.TextSecondary, fontSize = 13.sp)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text("Always use the offline brain (never Gemini)", color = Color.White, modifier = Modifier.weight(1f))
+            Text("Always use the offline brain (never Gemini)", color = BroColors.TextPrimary, modifier = Modifier.weight(1f))
             Switch(checked = offlineOnly, onCheckedChange = { offlineOnly = it; prefs.brainMode = if (it) "offline" else "auto" })
         }
         var buildMode by remember { mutableStateOf(prefs.appBuildMode) }
-        Text("When BRO builds an app", color = Color.White, fontSize = 15.sp)
+        Text("When BRO builds an app", color = BroColors.TextPrimary, fontSize = 15.sp)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf("api" to "API keys", "offline" to "Offline", "team" to "Team", "all" to "All 3").forEach { (key, label) ->
                 val pick = { buildMode = key; prefs.appBuildMode = key }
