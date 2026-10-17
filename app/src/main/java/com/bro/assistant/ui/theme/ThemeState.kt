@@ -16,7 +16,7 @@ object ThemeState {
     var mode by mutableStateOf("system")
     var systemDark by mutableStateOf(true)
     val dark: Boolean get() = when (mode) { "light" -> false; "dark" -> true; else -> systemDark }
-    fun setMode(m: String) { mode = m; store?.themeMode = m }
+    fun chooseMode(m: String) { mode = m; store?.themeMode = m }
     /** A colour that stays readable on the light background: dark enough, same hue. */
     fun readableOnLight(c: Color): Color {
         var x = c

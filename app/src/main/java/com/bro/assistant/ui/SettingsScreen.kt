@@ -400,7 +400,7 @@ fun SettingsScreen(
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf("system" to "Auto", "light" to "Light", "dark" to "Dark").forEach { (key, label) ->
                     val on = com.bro.assistant.ui.theme.ThemeState.mode == key
-                    val pick = { com.bro.assistant.ui.theme.ThemeState.setMode(key) }
+                    val pick = { com.bro.assistant.ui.theme.ThemeState.chooseMode(key) }
                     if (on) Button(onClick = pick) { Text(label) } else OutlinedButton(onClick = pick) { Text(label) }
                 }
             }
