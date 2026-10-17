@@ -99,6 +99,7 @@ class MainActivity : FragmentActivity() {
     private var callMode by mutableStateOf<String?>(null)
     private var callText by mutableStateOf("")
     private var needLogin by mutableStateOf(false)
+    private var onboardDone by mutableStateOf(true)
     private var recovery by mutableStateOf(false)
     private var mailSetup by mutableStateOf(false)
 
@@ -148,6 +149,8 @@ class MainActivity : FragmentActivity() {
             vm.reportCrash(it)
         }
         needLogin = vm.prefs.accountEmail.isBlank()
+        if (!vm.prefs.hasOnboardKey()) vm.prefs.onboarded = vm.prefs.accountEmail.isNotBlank()
+        onboardDone = vm.prefs.onboarded
         locked = lockEnabled()
         showSettings = savedInstanceState?.getBoolean("s") ?: false
         showHistory = savedInstanceState?.getBoolean("h") ?: false
@@ -244,6 +247,11 @@ class MainActivity : FragmentActivity() {
                             waitSeconds = { waitSeconds() },
                             onBiometric = biometricOffer { val a = verifyAction; verifyAction = null; a?.invoke() },
                             onCancel = { verifyAction = null }
+                        )
+                    } else if (!onboardDone) {
+                        com.bro.assistant.ui.OnboardingScreen(
+                            onFinish = { vm.prefs.onboarded = true; onboardDone = true },
+                            onOpenSettings = { vm.prefs.onboarded = true; onboardDone = true; showSettings = true }
                         )
                     } else if (showSettings) {
                         BackHandler { showSettings = false }

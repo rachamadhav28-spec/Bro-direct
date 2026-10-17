@@ -131,7 +131,7 @@ fun SettingsScreen(
             prefs.speakReplies = speakReplies
             saved = true
         }) { Text(if (saved) "Saved" else "Save") }
-        Text("Tap a section to open it. Tap Save after changing keys or switches.", color = BroColors.TextSecondary, fontSize = 13.sp)
+        Text("Tap a section to open it. Tap Save after changing keys or switches.", color = BroColors.TextSecondary, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
 
         SectionHeader("AI (needs internet)", openSection == "AI (needs internet)") { openSection = if (openSection == "AI (needs internet)") "" else "AI (needs internet)" }
         if (openSection == "AI (needs internet)") {
@@ -572,23 +572,36 @@ private fun Heading(text: String) {
 
 @Composable
 private fun SectionHeader(text: String, open: Boolean, onClick: () -> Unit) {
-    Spacer(Modifier.height(12.dp))
+    val group = GROUPS[text]
+    if (group != null) {
+        Spacer(Modifier.height(22.dp))
+        Text(group, color = BroColors.Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp, modifier = Modifier.padding(start = 4.dp, bottom = 4.dp))
+    } else Spacer(Modifier.height(6.dp))
     Row(
         Modifier.fillMaxWidth()
-            .heightIn(min = 56.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(if (open) BroColors.AccentSoft else BroColors.Surface2)
-            .border(1.dp, if (open) BroColors.Accent.copy(alpha = 0.5f) else BroColors.Outline, RoundedCornerShape(16.dp))
+            .heightIn(min = 54.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(if (open) BroColors.AccentSoft else BroColors.Panel)
+            .border(1.dp, if (open) BroColors.Accent.copy(alpha = 0.45f) else BroColors.Outline, RoundedCornerShape(14.dp))
             .clickable(onClickLabel = if (open) "Close $text" else "Open $text") { onClick() }
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(text, color = BroColors.TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-        Text(if (open) "\u2303" else "\u2304", color = BroColors.Accent, fontSize = 18.sp)
+        Text(text, color = BroColors.TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+        Text(if (open) "\u2303" else "\u2304", color = BroColors.TextSecondary, fontSize = 18.sp)
     }
     Spacer(Modifier.height(6.dp))
 }
+
+private val GROUPS = mapOf(
+    "AI (needs internet)" to "BRAIN",
+    "Security (BRO lock)" to "ACCOUNT AND SECURITY",
+    "Voice" to "VOICE AND ALERTS",
+    "Look and animation" to "APPEARANCE AND BACKUP",
+    "BRO learns" to "LEARNING AND AUTOMATION",
+    "Permissions" to "PHONE ACCESS"
+)
 
 @Composable
 private fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {

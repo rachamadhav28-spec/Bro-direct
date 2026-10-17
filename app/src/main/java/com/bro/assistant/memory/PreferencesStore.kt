@@ -141,6 +141,11 @@ class PreferencesStore(context: Context) {
     var layoutMode: String
         get() = sp.getString("layout_mode", "auto") ?: "auto"
         set(value) { sp.edit().putString("layout_mode", value).apply() }
+    /** The first-run welcome has been seen. Anyone who already had an account never needs it. */
+    fun hasOnboardKey() = sp.contains("onboarded")
+    var onboarded: Boolean
+        get() = sp.getBoolean("onboarded", false)
+        set(value) { sp.edit().putBoolean("onboarded", value).apply() }
     /** "system", "light" or "dark". */
     var themeMode: String
         get() = sp.getString("theme_mode", "system") ?: "system"

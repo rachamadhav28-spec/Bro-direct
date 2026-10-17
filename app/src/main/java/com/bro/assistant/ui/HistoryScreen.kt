@@ -69,24 +69,24 @@ fun HistoryScreen(vm: ChatViewModel, onBack: () -> Unit, onOpen: () -> Unit, emb
                     modifier = Modifier.padding(24.dp), color = BroColors.TextSecondary, fontSize = 15.sp
                 )
             }
-            LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(shown, key = { it.id }) { c ->
-                    Row(
-                        Modifier.fillMaxWidth().heightIn(min = 64.dp).clip(RoundedCornerShape(16.dp))
-                            .background(BroColors.Surface2).border(1.dp, BroColors.Outline, RoundedCornerShape(16.dp))
-                            .clickable(onClickLabel = "Open chat") { vm.openConversation(c.id); onOpen() }
-                            .padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(Modifier.weight(1f)) {
-                            Text(c.title.ifBlank { "Chat" }, maxLines = 1, overflow = TextOverflow.Ellipsis, color = BroColors.TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                            Text(
-                                DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(c.updated)),
-                                color = BroColors.TextSecondary, fontSize = 12.sp
-                            )
+            val groups = remember(shown) { shown.groupBy { dayGroup(it.updated) }.toList().sortedBy { groupOrder(it.first) } }
+            LazyColumn(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                groups.forEach { (label, list) ->
+                    item(key = "g_$label") {
+                        Text(label, color = BroColors.TextSecondary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(start = 8.dp, top = 14.dp, bottom = 4.dp))
+                    }
+                    items(list, key = { it.id }) { c ->
+                        Row(
+                            Modifier.fillMaxWidth().heightIn(min = 52.dp).clip(RoundedCornerShape(14.dp))
+                                .clickable(onClickLabel = "Open chat") { vm.openConversation(c.id); onOpen() }
+                                .padding(start = 12.dp, end = 2.dp, top = 6.dp, bottom = 6.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(c.title.ifBlank { "Chat" }, maxLines = 2, overflow = TextOverflow.Ellipsis, color = BroColors.TextPrimary, fontSize = 15.sp, modifier = Modifier.weight(1f))
+                            TextButton(onClick = { deleteId = c.id }) { Text("Delete", color = BroColors.TextSecondary, fontSize = 12.sp) }
                         }
-                        TextButton(onClick = { deleteId = c.id }) { Text("Delete", color = BroColors.Error) }
                     }
                 }
             }
@@ -102,3 +102,16 @@ fun HistoryScreen(vm: ChatViewModel, onBack: () -> Unit, onOpen: () -> Unit, emb
         )
     }
 }
+
+private fun dayStart(t: Long): Long {
+    val c = java.util.Calendar.getInstance(); c.timeInMillis = t
+    c.set(java.util.Calendar.HOUR_OF_DAY, 0); c.set(java.util.Calendar.MINUTE, 0); c.set(java.util.Calendar.SECOND, 0); c.set(java.util.Calendar.MILLISECOND, 0)
+    return c.timeInMillis
+}
+
+private fun dayGroup(updated: Long): String {
+    val days = ((dayStart(System.currentTimeMillis()) - dayStart(updated)) / 86_400_000L).toInt()
+    return when { days <= 0 -> "Today"; days == 1 -> "Yesterday"; days <= 7 -> "Previous 7 days"; days <= 30 -> "Previous 30 days"; else -> "Older" }
+}
+
+private fun groupOrder(g: String) = listOf("Today", "Yesterday", "Previous 7 days", "Previous 30 days", "Older").indexOf(g)
