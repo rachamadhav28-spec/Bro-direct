@@ -159,6 +159,9 @@ private fun CodeCard(block: CodeBlock, onDownload: () -> Unit) {
     val allLines = remember(block.code) { block.code.lines() }
     val long = allLines.size > PREVIEW_LINES
     val shown = if (long && !expanded) allLines.take(PREVIEW_LINES).joinToString("\n") else block.code
+    // keywords, strings, comments and numbers in colour (plain text when the language is unknown)
+    val dark = com.bro.assistant.ui.theme.ThemeState.dark
+    val colored = remember(shown, block.lang, dark) { highlight(shown, block.lang, dark) }
 
     Surface(
         color = BroColors.CodeBg,
@@ -185,7 +188,7 @@ private fun CodeCard(block: CodeBlock, onDownload: () -> Unit) {
             }
             SelectionContainer {
                 Text(
-                    shown,
+                    colored,
                     fontFamily = FontFamily.Monospace,
                     fontSize = 12.sp,
                     color = BroColors.CodeText,
