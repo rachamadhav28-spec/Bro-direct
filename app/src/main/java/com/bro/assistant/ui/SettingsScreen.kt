@@ -29,6 +29,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import kotlinx.coroutines.withContext
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
@@ -169,6 +170,29 @@ fun SettingsScreen(
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text(p.strong, color = Color.Gray, fontSize = 12.sp, modifier = Modifier.weight(1f))
                 TextButton(onClick = { uriHandler.openUri(p.signup) }) { Text("Get key") }
+            }
+            if (p == com.bro.assistant.ai.Provider.COLAB) {
+                val scope = androidx.compose.runtime.rememberCoroutineScope()
+                var localMsg by remember { mutableStateOf("") }
+                OutlinedButton(onClick = {
+                    val base = (provKeys[p.id] ?: "").substringBefore('|').trim().trimEnd('/')
+                    if (base.length < 8) { localMsg = "Paste the address first, like http://127.0.0.1:8080|x" }
+                    else {
+                        localMsg = "Checking\u2026"
+                        scope.launch {
+                            localMsg = withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                try {
+                                    val c = java.net.URL("$base/health").openConnection() as java.net.HttpURLConnection
+                                    c.connectTimeout = 4000; c.readTimeout = 4000
+                                    val code = c.responseCode
+                                    c.disconnect()
+                                    if (code == 200) "\u2713 The model server is on and ready." else "The server answered, but it is not ready yet (code $code). Wait a minute and try again."
+                                } catch (e: Exception) { "Can't reach it. Is Termux running the server (type qwen there)?" }
+                            }
+                        }
+                    }
+                }) { Text("Test local model") }
+                if (localMsg.isNotEmpty()) Text(localMsg, color = BroColors.TextSecondary, fontSize = 12.sp)
             }
         }
 
