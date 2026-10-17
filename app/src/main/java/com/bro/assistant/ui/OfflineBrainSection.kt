@@ -95,7 +95,20 @@ fun OfflineBrainSection(prefs: PreferencesStore) {
         )
         OutlinedButton(onClick = {
             link = "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm"
-        }) { Text("Use Gemma 4 E2B link") }
+        }) { Text("Gemma 4 E2B (small, about 2.6 GB)") }
+        OutlinedButton(onClick = {
+            link = "https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it.litertlm"
+        }) { Text("Gemma 4 E4B (better at code, 3.7 GB)") }
+        OutlinedButton(onClick = {
+            link = "https://huggingface.co/litert-community/Qwen3-4B/resolve/main/qwen3_4b_mixed_int4.litertlm"
+        }) { Text("Qwen3 4B (good at code, 2.7 GB)") }
+        OutlinedButton(onClick = {
+            link = "https://huggingface.co/litert-community/gemma-4-12B-it-litert-lm/resolve/main/gemma-4-12B-it.litertlm"
+        }) { Text("Gemma 4 12B (heavy, 6.6 GB, needs 8 GB+ RAM)") }
+        Text(
+            "All free. Bigger = smarter at code but slower and needs more free RAM. If a download says not allowed, accept the model's licence on its Hugging Face page in your browser, download the file there and use Choose file.",
+            color = Color.Gray, fontSize = 12.sp
+        )
         OutlinedTextField(
             value = link, onValueChange = { link = it },
             label = { Text("Link to the .task model file") }, singleLine = true, modifier = Modifier.fillMaxWidth()
