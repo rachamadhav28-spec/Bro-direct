@@ -230,19 +230,26 @@ class AppBuilder(private val prefs: PreferencesStore, private val gh: GitHubClie
         val names = gh.listFiles(repo, AppTemplate.SOURCE_DIR).filter { it.endsWith(".kt") }
         if (names.isEmpty()) return "I only know how to fix apps that BRO created."
         val engine = if (mode == "offline") "offline" else if (mode == "team" && !cloudReady()) "offline" else "cloud"
+        val orig = LinkedHashMap<String, String>()
+        for (n in names) orig[AppTemplate.SOURCE_DIR + n] = gh.readFile(repo, AppTemplate.SOURCE_DIR + n)
         // Fix only the files the compiler complained about, one at a time: a short plain-code answer each,
         // instead of one huge JSON with every file (that is what broke big apps).
         val errorLines = errors.lines()
         val targets = names.filter { n -> errorLines.any { it.contains(n) } }.ifEmpty { names }
+        val declRx = Regex("(?m)^(?:(?:sealed|data|enum|abstract|open|private|internal)\\s+)*(?:class|object|interface|fun|val|var|typealias)\\s+[^\\n{=]{1,90}")
         val ai = mutableMapOf<String, String>()
         for (n in targets) {
             val path = AppTemplate.SOURCE_DIR + n
-            val old = gh.readFile(repo, path)
+            val old = orig.getValue(path)
             val mine = errorLines.filter { it.contains(n) }.joinToString("\n").ifBlank { errors }.take(3500)
+            val others = orig.filterKeys { it != path }.entries.joinToString("\n") { (k, v) ->
+                k.substringAfterLast('/') + ": " + declRx.findAll(v).map { it.value.trim() }.take(14).joinToString("; ")
+            }.take(1800)
             com.bro.assistant.Activity.step("Fixing $n")
             val reply = try {
                 gemini.generate(
-                    FIX_FILE_PROMPT, "Compile errors:\n$mine\n\nFile $n:\n$old", json = false, timeoutMs = 150000, engine = engine
+                    FIX_FILE_PROMPT, "Compile errors:\n$mine\n\nOther files in the project (never declare these names again here):\n$others\n\nFile $n:\n$old",
+                    json = false, timeoutMs = 150000, engine = engine
                 )
             } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { continue }
             val fenced = Regex("```[A-Za-z]*\\n([\\s\\S]*?)```").find(reply)?.groupValues?.get(1) ?: reply.trim().removePrefix("```kotlin").removeSuffix("```")
@@ -251,13 +258,14 @@ class AppBuilder(private val prefs: PreferencesStore, private val gh: GitHubClie
             if (!code.contains("package com.bro.app") || code.length < old.length * 0.6) continue
             ai[path] = CodeLint.fix(code)
         }
-        // certain repairs (missing imports, experimental opt-ins) on every file, whatever the AI changed
-        for (n in names) {
-            val path = AppTemplate.SOURCE_DIR + n
+        // certain repairs on every file, whatever the AI changed: same class declared in two files, missing imports, opt-ins
+        val all = LinkedHashMap<String, String>()
+        for ((path, content) in orig) all[path] = ai[path] ?: content
+        for ((path, content) in CodeLint.dedupe(all)) { ai[path] = CodeLint.fix(content); all[path] = ai.getValue(path) }
+        for ((path, content) in all) {
             if (path in ai) continue
-            val old = gh.readFile(repo, path)
-            val fixed = CodeLint.fix(old)
-            if (fixed != old) ai[path] = fixed
+            val fixed = CodeLint.fix(content)
+            if (fixed != content) ai[path] = fixed
         }
         if (ai.isEmpty()) return "I couldn't find anything to change. See the errors with \"why did the build fail in ${repo.substringAfter('/')}\"."
         if (!confirm("Push a fix for ${ai.keys.joinToString { it.substringAfterLast('/') }} in $repo?")) {
@@ -299,7 +307,9 @@ class AppBuilder(private val prefs: PreferencesStore, private val gh: GitHubClie
         private const val FIX_FILE_PROMPT =
             "You fix Kotlin / Jetpack Compose (Material3, Kotlin 2.0) compile errors. You get the compiler errors and ONE file. " +
                 "Reply with ONLY the complete corrected file in a single ```kotlin block: keep everything that works, change only what the errors need, " +
-                "add any missing imports, keep the first line 'package com.bro.app'. Do not shorten the file and do not explain."
+                "add any missing imports, keep the first line 'package com.bro.app'. Do not shorten the file and do not explain. " +
+                "Icons are NOT available (no material-icons): replace any Icon(...) or Icons.* with a Text symbol such as \"\u2190\". " +
+                "Never import weight or align (they are members of Row/Column/Box). If a class, object or function is already declared in another file, delete it here and use it."
         private val RULES = """
             Target: Android, Kotlin 2.0, Jetpack Compose with Material3, compileSdk 35, minSdk 26.
             Rules (the code must compile on the first try):

@@ -90,6 +90,10 @@ object MultiAi {
         for (m in models) {
             try {
                 val out = once(p, key, m, system, user, json, timeoutMs)
+                // "openrouter/free" sometimes lands on a safety-classifier model: its reply is a label, not an answer
+                if (Regex("^\\s*(?:User |Response |Assistant )?Safety\\s*:\\s*(?:safe|unsafe|controversial)", RegexOption.IGNORE_CASE).containsMatchIn(out.take(60))) {
+                    throw AiException(502, "${p.label} returned a safety label instead of an answer")
+                }
                 if (skill != Skill.CODE && m != remembered) prefs.setProviderModel(p.id, m)
                 return out
             } catch (e: AiException) {

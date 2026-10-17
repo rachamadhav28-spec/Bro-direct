@@ -62,8 +62,42 @@ object CodeLint {
 
     private val experimental = Regex("\\b(TopAppBar|CenterAlignedTopAppBar|LargeTopAppBar|ModalBottomSheet|ExposedDropdownMenuBox|DatePicker|TimePicker|SearchBar|FilterChip|AssistChip)\\b")
 
+    /** Same top-level class/object declared in two files: keep the one in MainActivity.kt (else the first file), delete the others. Returns only the files that changed. */
+    fun dedupe(files: Map<String, String>): Map<String, String> {
+        val declRx = Regex("(?m)^(?:(?:sealed|data|enum|abstract|open|private|internal)\\s+)*(?:class|object|interface)\\s+([A-Z]\\w*)")
+        val cur = LinkedHashMap(files)
+        val owner = HashMap<String, String>()
+        val order = cur.keys.sortedBy { if (it.endsWith("/MainActivity.kt")) 0 else 1 }
+        for (path in order) {
+            var guard = 0
+            var from = 0
+            while (guard++ < 40) {
+                val text = cur.getValue(path)
+                val m = declRx.find(text, from) ?: break
+                val name = m.groupValues[1]
+                if (owner.putIfAbsent(name, path).let { it == null || it == path }) { from = m.range.last + 1; continue }
+                // delete this declaration: its line, plus its braces when it has a body
+                val lineEnd = text.indexOf('\n', m.range.first).let { if (it < 0) text.length else it }
+                var end = lineEnd
+                var depth = 0
+                var opened = false
+                var i = m.range.first
+                while (i < text.length) {
+                    val ch = text[i]
+                    if (ch == '{') { depth++; opened = true } else if (ch == '}') depth--
+                    if (opened && depth == 0) { end = i + 1; break }
+                    if (!opened && ch == '\n') { end = i; break }
+                    i++
+                }
+                cur[path] = text.removeRange(m.range.first, end)
+                from = m.range.first
+            }
+        }
+        return cur.filter { (k, v) -> v != files[k] }
+    }
+
     fun fix(src: String): String {
-        var s = src
+        var s = src.replace(Regex("(?m)^import androidx\\.compose\\.foundation\\.layout\\.(?:weight|align|matchParentSize|alignBy|alignByBaseline)\\s*\\n"), "")
         val importedNames = Regex("(?m)^import\\s+([\\w.]+)").findAll(s).map { it.groupValues[1] }.toSet()
         val wildcards = importedNames.filter { it.endsWith(".*") }.map { it.removeSuffix(".*") }.toSet()
         val simple = importedNames.map { it.substringAfterLast('.') }.toSet()
