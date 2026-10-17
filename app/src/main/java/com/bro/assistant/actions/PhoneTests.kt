@@ -32,7 +32,7 @@ object PhoneTests {
             val goal = "TEST of \"$target\". Do this test step: $step. " +
                 "If the step is a check or expectation, look at the screen and verify it. Finish with done only if it really holds " +
                 "(say what you saw), or fail with the reason if it does not."
-            val r = try { agent.run(goal, confirm) { } } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { com.bro.assistant.actions.ActionResult.fail(e.message ?: "error") }
+            val r = try { agent.run(goal, confirm) { } } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { com.bro.assistant.task.ActionResult.fail(e.message ?: "error") }
             val secs = (System.currentTimeMillis() - t0) / 1000
             if (r.success) pass++
             lines.add("${if (r.success) "PASS" else "FAIL"}  ${i + 1}. $step (${secs}s)\n      ${r.message.take(160)}")
