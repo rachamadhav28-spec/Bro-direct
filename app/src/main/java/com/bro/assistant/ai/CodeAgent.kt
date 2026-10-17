@@ -31,7 +31,67 @@ object CodeAgent {
             "against the request. Reply with the FINAL corrected code in full (every file in its own fenced block, with its file name in bold on the line above), then at most " +
             "3 short lines saying what you fixed. If it is already correct, return it unchanged and say so. " + CodeFormat.RULES
 
+    // ---- Chunked mode: a small local model (Termux) has a 2048-token window, so one file at a time ----
+    private const val FILES_PROMPT =
+        "You are a senior software architect. List the source files needed for the request, in the order they should be written " +
+            "(shared code first). Reply with ONLY lines in this exact form, at most 8 lines, nothing else:\n" +
+            "FILE: <real file name> | <what it contains, one short sentence>"
+
+    private const val FILE_WRITE =
+        "You are BRO, an expert programmer. Write ONLY the one file you are asked for, complete and runnable: all imports, " +
+            "no placeholders or '...', handle errors. Use exactly the names of functions and classes shown in the other files. " +
+            "Reply with the file name in bold on its own line, then the file in one fenced block with its language, then nothing else. " +
+            CodeFormat.RULES
+
+    private fun localCoderOn(c: Context): Boolean =
+        try { com.bro.assistant.memory.PreferencesStore(c).providerKey("colab").isNotBlank() } catch (e: Exception) { false }
+
+    private val signatureRx = Regex("^\\s*(?:import |from |class |def |fun |function |export |const |public |private |interface |data class |object )")
+
+    private fun summary(name: String, code: String): String {
+        val lines = code.lines().filter { signatureRx.containsMatchIn(it) }.take(12).joinToString("\n") { it.trim().take(110) }
+        return "$name:\n${lines.take(600)}"
+    }
+
+    private fun langOf(name: String): String = when (name.substringAfterLast('.', "").lowercase()) {
+        "py" -> "python"; "kt" -> "kotlin"; "java" -> "java"; "js" -> "javascript"; "ts" -> "typescript"
+        "html" -> "html"; "css" -> "css"; "xml" -> "xml"; "json" -> "json"; "sh" -> "bash"; "c" -> "c"; "cpp" -> "cpp"; else -> ""
+    }
+
+    private suspend fun solveChunked(c: Context, ai: GeminiClient, request: String, notes: String): String? {
+        val plan = ai.generate(FILES_PROMPT, notes + "Request:\n" + request, json = false, timeoutMs = 120000, skill = Skill.REASON)
+        val files = plan.lines().mapNotNull { l ->
+            val t = l.trim().removePrefix("-").trim()
+            if (!t.startsWith("FILE:", ignoreCase = true)) return@mapNotNull null
+            val body = t.substring(5).trim()
+            val name = body.substringBefore('|').trim().trim('`', '*')
+            if (name.isBlank() || name.length > 80 || name.contains(' ')) null else name to body.substringAfter('|', "").trim()
+        }.distinctBy { it.first }.take(8)
+        if (files.size < 2) return null   // a single file fits the normal flow
+        val outline = files.joinToString("\n") { "${it.first}: ${it.second}" }
+        val done = ArrayList<Pair<String, String>>()
+        val out = StringBuilder()
+        files.forEachIndexed { i, (name, purpose) ->
+            BroTaskService.update(c, "Coding file ${i + 1} of ${files.size}: $name"); com.bro.assistant.Activity.step("Writing $name (${i + 1} of ${files.size})")
+            val others = done.joinToString("\n\n") { summary(it.first, it.second) }.take(1400)
+            val user = notes.take(300) + "Request:\n" + request.take(700) + "\n\nAll files:\n" + outline +
+                (if (others.isNotBlank()) "\n\nAlready written (signatures only):\n$others" else "") +
+                "\n\nNow write ONLY $name: $purpose"
+            val reply = ai.generate(FILE_WRITE, user, json = false, timeoutMs = 240000, skill = Skill.CODE).trim()
+            val code = Regex("```[A-Za-z0-9+#_-]*\\n([\\s\\S]*?)(?:```|$)").find(reply)?.groupValues?.get(1)?.trimEnd() ?: reply
+            done.add(name to code)
+            out.append("**").append(name).append("**\n```").append(langOf(name)).append('\n').append(code).append("\n```\n\n")
+        }
+        out.append("Written file by file so it fits the on-phone model. Run the first file listed, or use the usual command for this language.")
+        return out.toString()
+    }
+
     suspend fun solve(c: Context, ai: GeminiClient, request: String, notes: String): String {
+        if (localCoderOn(c)) {
+            try { solveChunked(c, ai, request, notes)?.let { return it } }
+            catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (e: Exception) { /* fall back to the normal three-step flow */ }
+        }
         BroTaskService.update(c, "Coding 1 of 3: planning"); com.bro.assistant.Activity.step("Planning the code")
         val plan = try { ai.generate(PLAN, notes + request, json = false, timeoutMs = 90000, skill = Skill.REASON).trim() } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { "" }
         BroTaskService.update(c, "Coding 2 of 3: writing the code"); com.bro.assistant.Activity.step("Writing the code")
