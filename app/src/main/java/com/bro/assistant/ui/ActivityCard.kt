@@ -44,6 +44,17 @@ import kotlinx.coroutines.delay
 import kotlin.math.PI
 import kotlin.math.sin
 
+/** 45s, then 1m 05s, then 1h 02m 03s. */
+fun clock(total: Int): String {
+    val t = total.coerceAtLeast(0)
+    val h = t / 3600; val m = (t % 3600) / 60; val sec = t % 60
+    return when {
+        h > 0 -> "${h}h %02dm %02ds".format(m, sec)
+        m > 0 -> "${m}m %02ds".format(sec)
+        else -> "${sec}s"
+    }
+}
+
 /** Six dots that pulse in a wave: the "BRO is working" mark. */
 @Composable
 fun ThinkingDots(modifier: Modifier = Modifier.size(22.dp), color: Color = NeonCyan) {
@@ -79,16 +90,16 @@ fun ActivityCard(live: Boolean) {
         Row(
             Modifier.fillMaxWidth().heightIn(min = 44.dp).clip(RoundedCornerShape(12.dp))
                 .clickable(onClickLabel = if (open) "Hide steps" else "Show steps") { open = !open }
-                .semantics { contentDescription = if (live) "BRO is $current, ${seconds} seconds" else "Worked for $seconds seconds" },
+                .semantics { contentDescription = if (live) "BRO is $current, ${clock(seconds)}" else "Worked for ${clock(seconds)}" },
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (live) ThinkingDots() else Text("\u2713", color = BroColors.Success, fontSize = 16.sp, modifier = Modifier.width(22.dp))
             Spacer(Modifier.width(10.dp))
             Text(
-                if (live) current else "Worked for ${seconds}s \u00B7 ${items.size} step${if (items.size == 1) "" else "s"}",
+                if (live) current else "Worked for ${clock(seconds)} \u00B7 ${items.size} step${if (items.size == 1) "" else "s"}",
                 color = BroColors.TextSecondary.copy(alpha = if (live) pulse else 1f), fontSize = 16.sp
             )
-            if (live) { Spacer(Modifier.width(8.dp)); Text("${seconds}s", color = BroColors.TextSecondary, fontSize = 14.sp) }
+            if (live) { Spacer(Modifier.width(8.dp)); Text(clock(seconds), color = BroColors.TextSecondary, fontSize = 14.sp) }
             Spacer(Modifier.width(6.dp))
             Text(if (open) "\u2303" else "\u2304", color = BroColors.TextSecondary, fontSize = 16.sp)
         }
