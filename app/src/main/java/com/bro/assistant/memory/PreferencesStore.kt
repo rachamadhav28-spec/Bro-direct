@@ -46,6 +46,11 @@ class PreferencesStore(context: Context) {
         get() = str("brain_mode", "auto")
         set(value) { sp.edit().putString("brain_mode", value).apply() }
 
+    /** Hard questions get a private planning pass before the answer. */
+    var deepThink: Boolean
+        get() = sp.getBoolean("deep_think", true)
+        set(value) { sp.edit().putBoolean("deep_think", value).apply() }
+
     /** Who writes apps: "api" (cloud AI only), "offline" (offline brain only) or "team" (cloud writes, offline brain reviews, each covers for the other). */
     var appBuildMode: String
         get() = str("app_build_mode", "team")

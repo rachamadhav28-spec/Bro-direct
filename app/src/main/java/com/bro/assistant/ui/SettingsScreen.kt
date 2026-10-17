@@ -400,6 +400,8 @@ fun SettingsScreen(
             SwitchRow("Moving HUD background (grid, particles, rings)", hudOn) { on ->
                 hudOn = on; com.bro.assistant.ui.theme.ThemeState.hud = on; prefs.hudAnimation = on
             }
+            var deep by remember { mutableStateOf(prefs.deepThink) }
+            SwitchRow("Think first on hard questions (slower, better answers)", deep) { deep = it; prefs.deepThink = it }
             Text("Zoom (${(com.bro.assistant.ui.theme.ThemeState.zoom * 100).toInt()}%)", color = BroColors.TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = { com.bro.assistant.ui.theme.ThemeState.zoomBy(-0.1f) }) { Text("Zoom \u2212") }

@@ -49,7 +49,36 @@ How to answer:
 - Reply in the user's language style: English, Telugu (తెలుగు), or Tenglish (Telugu in English letters). Keep technical terms in English.
 - Put code in fenced blocks with the language name.
 - Keep it as short as the question allows. Simple questions get short answers; do not pad.
+- Answer the real question first, then add what helps. No flattery, no filler openers like "Great question".
+- Say what you are unsure about and how sure you are. If the question has two reasonable readings, answer the likelier one and name your assumption; ask one short question only when guessing could waste his time.
+- Check your own work: recompute numbers, re-read code for errors, and make sure each claim is something you actually know. Correct yourself if you notice a mistake.
+- Give a clear recommendation when asked to choose, with the main reason and the main risk.
 """ + "\n" + CodeFormat.RULES
+
+    private val hard = Regex(
+        "\\b(?:why|how\\s+(?:do|does|can|to|would|should)|compare|difference|explain|plan|design|debug|prove|solve|analy[sz]e|step\\s*by\\s*step|pros\\s+and\\s+cons|" +
+            "trade-?offs?|best\\s+way|strategy|architecture|optimi[sz]e|algorithm|derive|evaluate|decide|which\\s+is\\s+better)\\b",
+        RegexOption.IGNORE_CASE
+    )
+
+    private const val THINK = """
+You are the private reasoning step of an AI assistant. Do NOT answer the user. Write working notes for yourself, under 220 words:
+1. What exactly is being asked, and what a great answer must contain.
+2. The key facts, formulas or steps (work any numbers out carefully).
+3. Likely mistakes or traps, and anything uncertain.
+4. The best order for the answer.
+Plain text, terse.
+"""
+
+    /** Hard questions get a short private planning pass first, then the streamed answer uses those notes. */
+    private suspend fun thinkFirst(ai: GeminiClient, prefs: PreferencesStore, question: String, context: String): String {
+        if (!prefs.deepThink || LocalLlm.willUse(prefs)) return ""
+        if (!(question.length > 140 || hard.containsMatchIn(question))) return ""
+        com.bro.assistant.Activity.step("Thinking it through")
+        return try {
+            ai.generate(THINK, context.takeLast(2500) + "\nQuestion: " + question, json = false, timeoutMs = 40000, engine = "cloud").trim().take(1600)
+        } catch (e: CancellationException) { throw e } catch (e: Exception) { "" }
+    }
 
     suspend fun answer(
         ctx: android.content.Context, prefs: PreferencesStore, question: String, history: String, onPartial: (String) -> Unit
@@ -61,16 +90,18 @@ How to answer:
             if (history.isNotBlank()) append("Conversation so far:\n").append(history.takeLast(3000)).append("\n\n")
             append("User: ").append(question)
         }
-        com.bro.assistant.Activity.step("Writing the answer")
         val ai = GeminiClient(prefs)
+        val plan = thinkFirst(ai, prefs, question, user)
+        com.bro.assistant.Activity.step("Writing the answer")
+        val prompt = if (plan.isBlank()) user else user + "\n\n[Your private working notes. Use them, but never show or mention them:\n" + plan + "\n]"
         val grounded = fresh.containsMatchIn(question)
         val text = try {
-            if (prefs.apiKey.isNotBlank() && !LocalLlm.willUse(prefs)) ai.chatStream(SYSTEM, user, grounded, onPartial)
-            else ai.generate(SYSTEM, user, json = false, timeoutMs = 90000, skill = Skill.GENERAL)
+            if (prefs.apiKey.isNotBlank() && !LocalLlm.willUse(prefs)) ai.chatStream(SYSTEM, prompt, grounded, onPartial)
+            else ai.generate(SYSTEM, prompt, json = false, timeoutMs = 90000, skill = Skill.GENERAL)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            ai.generate(SYSTEM, user, json = false, timeoutMs = 90000, skill = Skill.GENERAL)
+            ai.generate(SYSTEM, prompt, json = false, timeoutMs = 90000, skill = Skill.GENERAL)
         }.trim()
         AnswerCache.put(ctx, question, text)
         return text
