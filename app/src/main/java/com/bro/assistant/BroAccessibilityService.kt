@@ -96,6 +96,31 @@ class BroAccessibilityService : AccessibilityService() {
         return withTimeoutOrNull(2000) { done.await() } ?: false
     }
 
+    /** A small JPEG of what is on screen (Android 11+), so the AI can also SEE apps whose buttons have no readable labels. */
+    suspend fun screenshotJpeg(maxWidth: Int = 720): ByteArray? {
+        if (android.os.Build.VERSION.SDK_INT < 30) return null
+        val result = CompletableDeferred<ByteArray?>()
+        try {
+            takeScreenshot(android.view.Display.DEFAULT_DISPLAY, mainExecutor, object : TakeScreenshotCallback {
+                override fun onSuccess(shot: ScreenshotResult) {
+                    try {
+                        val hw = android.graphics.Bitmap.wrapHardwareBuffer(shot.hardwareBuffer, shot.colorSpace)
+                        val soft = hw?.copy(android.graphics.Bitmap.Config.ARGB_8888, false)
+                        shot.hardwareBuffer.close()
+                        if (soft == null) { result.complete(null); return }
+                        val scale = if (soft.width > maxWidth) maxWidth.toFloat() / soft.width else 1f
+                        val small = if (scale < 1f) android.graphics.Bitmap.createScaledBitmap(soft, (soft.width * scale).toInt(), (soft.height * scale).toInt(), true) else soft
+                        val out = java.io.ByteArrayOutputStream()
+                        small.compress(android.graphics.Bitmap.CompressFormat.JPEG, 60, out)
+                        result.complete(out.toByteArray())
+                    } catch (e: Exception) { result.complete(null) }
+                }
+                override fun onFailure(errorCode: Int) { result.complete(null) }
+            })
+        } catch (e: Exception) { return null }
+        return withTimeoutOrNull(4000) { result.await() }
+    }
+
     suspend fun tap(x: Float, y: Float): Boolean =
         stroke(Path().apply { moveTo(x, y); lineTo(x + 1f, y) }, 60)
 

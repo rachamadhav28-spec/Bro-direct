@@ -93,8 +93,15 @@ class AppAgent(
                 append("\n\nREMINDER - GOAL: ").append(goal).append("\nReply with the JSON for the single next action.")
             }
 
+            // When few labelled elements are readable (games, canvas or Flutter apps) or the last step changed nothing, let the AI also SEE the screen
+            val shot = if (!compact && prefs.apiKey.isNotBlank() && (items.size < 5 || repeats >= 1) && pkg != "com.bro.assistant") service.screenshotJpeg() else null
+            if (shot != null) com.bro.assistant.Activity.step("Looking at the screen")
             val decision = try {
-                val raw = ai.generate(if (compact) SYSTEM_COMPACT else SYSTEM, prompt, json = true, timeoutMs = 40000)
+                val raw = if (shot != null) ai.generateWithImage(
+                    SYSTEM + "\nA SCREENSHOT of the screen is attached. If the element list is missing what you need, point at it with " +
+                        "{\"action\":\"tap_xy\",\"x\":0-1000,\"y\":0-1000} where x,y are the position in the picture as thousandths of its width and height.",
+                    prompt, shot)
+                else ai.generate(if (compact) SYSTEM_COMPACT else SYSTEM, prompt, json = true, timeoutMs = 40000)
                 JSONObject(raw.trim().removePrefix("```json").removePrefix("```").removeSuffix("```").trim())
             } catch (e: CancellationException) {
                 throw e
@@ -108,7 +115,7 @@ class AppAgent(
             val text = decision.optString("text")
             val item = items.getOrNull(index)
 
-            val sig = action + index + text + decision.optString("query") + decision.optString("url") + pkg + items.size + (items.firstOrNull()?.label ?: "")
+            val sig = action + index + text + decision.optString("x") + decision.optString("y") + decision.optString("query") + decision.optString("url") + pkg + items.size + (items.firstOrNull()?.label ?: "")
             repeats = if (sig == lastSig) repeats + 1 else 0
             lastSig = sig
             if (repeats >= 2) return ActionResult.fail("I got stuck repeating the same step. ${tail(history)}")
@@ -164,6 +171,14 @@ class AppAgent(
                     history.add("scroll ${if (down) "down" else "up"} -> ${if (ok) "scrolled" else "failed"}")
                 }
 
+                "tap_xy" -> {
+                    val dm = context.resources.displayMetrics
+                    val fx = decision.optDouble("x", -1.0); val fy = decision.optDouble("y", -1.0)
+                    if (fx !in 0.0..1000.0 || fy !in 0.0..1000.0) { history.add("tap_xy -> bad position"); continue }
+                    progress("Tap on the screen")
+                    val ok = service.tap((fx / 1000.0 * dm.widthPixels).toFloat(), (fy / 1000.0 * dm.heightPixels).toFloat())
+                    history.add("tap_xy ($fx,$fy) -> ${if (ok) "tapped" else "failed"}")
+                }
                 "search_web" -> {
                     val q = decision.optString("query").trim()
                     if (q.isBlank()) { history.add("search_web -> empty query"); continue }

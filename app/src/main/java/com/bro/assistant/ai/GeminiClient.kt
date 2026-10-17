@@ -314,4 +314,27 @@ class GeminiClient(private val prefs: PreferencesStore) {
             conn.disconnect()
         }
     }
+
+    /** One question about a picture (cloud Gemini only). Used by the phone agent to read screens with no readable labels. */
+    suspend fun generateWithImage(system: String, user: String, jpeg: ByteArray, timeoutMs: Int = 45000): String = withContext(Dispatchers.IO) {
+        if (prefs.apiKey.isBlank()) throw AiException(401, "no Gemini key for screenshots")
+        val conn = URL("https://generativelanguage.googleapis.com/v1beta/models/${prefs.model}:generateContent").openConnection() as HttpURLConnection
+        try {
+            conn.requestMethod = "POST"; conn.connectTimeout = 15000; conn.readTimeout = timeoutMs; conn.doOutput = true
+            conn.setRequestProperty("Content-Type", "application/json")
+            conn.setRequestProperty("x-goog-api-key", currentKey())
+            val parts = JSONArray()
+                .put(JSONObject().put("text", user))
+                .put(JSONObject().put("inlineData", JSONObject().put("mimeType", "image/jpeg").put("data", android.util.Base64.encodeToString(jpeg, android.util.Base64.NO_WRAP))))
+            val body = JSONObject()
+                .put("systemInstruction", JSONObject().put("parts", JSONArray().put(JSONObject().put("text", system))))
+                .put("contents", JSONArray().put(JSONObject().put("role", "user").put("parts", parts)))
+                .put("generationConfig", JSONObject().put("responseMimeType", "application/json").put("temperature", 0.2).put("maxOutputTokens", 1024))
+            conn.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
+            val code = conn.responseCode
+            val text = (if (code in 200..299) conn.inputStream else conn.errorStream)?.bufferedReader()?.use { it.readText() } ?: ""
+            if (code !in 200..299) throw AiException(code, (runCatching { JSONObject(text).getJSONObject("error").getString("message") }.getOrDefault(text)).take(120))
+            JSONObject(text).getJSONArray("candidates").getJSONObject(0).getJSONObject("content").getJSONArray("parts").getJSONObject(0).getString("text")
+        } finally { conn.disconnect() }
+    }
 }
