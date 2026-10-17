@@ -421,6 +421,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         // memory: remember / forget / "what is my ..." (works offline)
         com.bro.assistant.ai.MemoryCommands.handle(app, text)?.let { return StepOutcome(true, it, BroState.SUCCESS) }
         com.bro.assistant.features.CodePdf.handle(app, text)?.let { return StepOutcome(true, it, BroState.SUCCESS) }
+        com.bro.assistant.actions.PlayInstall.handle(app, prefs, text) { q -> askConfirm(q) }?.let { return StepOutcome(true, it, BroState.SUCCESS) }
         com.bro.assistant.actions.PhoneTests.handle(app, prefs, text) { q -> askConfirm(q) }?.let { return StepOutcome(true, it, BroState.SUCCESS) }
         com.bro.assistant.learn.LearnCommands.handle(app, prefs, text)?.let { return StepOutcome(true, it, BroState.SUCCESS) }
         // "good morning": time, alarm, weather, calendar, tasks finished while you were away
