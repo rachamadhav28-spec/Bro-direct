@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -120,12 +122,12 @@ fun ChatScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column {
-                BroWordmark(24.sp, 3.sp)
-                Text("build " + com.bro.assistant.BuildConfig.BUILD_NUMBER, color = BroColors.TextSecondary, fontSize = 11.sp)
+            Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                BroWordmark(22.sp, 2.sp)
+                Text("build " + com.bro.assistant.BuildConfig.BUILD_NUMBER, color = BroColors.TextSecondary, fontSize = 11.sp, modifier = Modifier.padding(bottom = 3.dp))
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                StatusChip(vm.state)
+                if (vm.state != BroState.IDLE) StatusChip(vm.state)
                 IconButton(onClick = { vm.newConversation() }, modifier = Modifier.semantics { contentDescription = "New chat" }) {
                     Text("+", color = BroColors.TextPrimary, fontSize = 26.sp)
                 }
@@ -178,35 +180,39 @@ fun ChatScreen(
         // ── Conversation, or a welcome with starters when it is empty ──
         Box(Modifier.weight(1f).fillMaxWidth()) {
             if (vm.messages.isEmpty() && !thinking && vm.state != BroState.LISTENING) {
+                val hour = remember { java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY) }
+                val greeting = when { hour < 5 -> "Still up?"; hour < 12 -> "Good morning"; hour < 17 -> "Good afternoon"; hour < 22 -> "Good evening"; else -> "Late night?" }
                 Column(
-                    Modifier.fillMaxSize().padding(horizontal = 20.dp),
+                    Modifier.fillMaxSize().widthIn(max = 640.dp).padding(horizontal = 20.dp).verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Box(Modifier.size(104.dp), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(96.dp), contentAlignment = Alignment.Center) {
                         HudRings(Modifier.fillMaxSize())
                         Box(
-                            Modifier.size(64.dp).clip(CircleShape)
-                                .background(Brush.linearGradient(listOf(NeonCyan.copy(alpha = 0.9f), NeonViolet.copy(alpha = 0.9f))))
+                            Modifier.size(56.dp).clip(CircleShape)
+                                .background(Brush.linearGradient(listOf(NeonCyan, NeonViolet)))
                         )
                     }
-                    Spacer(Modifier.height(16.dp))
-                    Text("Hi, I'm BRO", color = BroColors.TextPrimary, fontSize = 26.sp, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(4.dp))
-                    Text("Ask me anything, or tell me what to do on your phone. English, Telugu or Tenglish.", color = BroColors.TextSecondary, fontSize = 15.sp, textAlign = TextAlign.Center)
-                    Spacer(Modifier.height(24.dp))
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        StarterCard("Write code", "A program, with a PDF copy") { vm.send("write a python program for a calculator") }
-                        StarterCard("Quiz me", "Practice a subject, I remember your weak points") { vm.send("quiz me on DBMS") }
-                        StarterCard("Study by yourself", "BRO learns in the background until you stop it") { vm.send("start studying") }
-                        StarterCard("My GitHub repos", "See what is in your account") { vm.send("list my repos") }
+                    Spacer(Modifier.height(20.dp))
+                    Text(greeting, color = BroColors.TextPrimary, fontSize = 28.sp, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(6.dp))
+                    Text("What can I do for you? Ask anything, or tell me what to do on your phone. English, Telugu or Tenglish.", color = BroColors.TextSecondary, fontSize = 15.sp, textAlign = TextAlign.Center)
+                    Spacer(Modifier.height(28.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        StarterCard("Write code", "A program or a whole app, saved as files") { vm.send("write a python program for a calculator") }
+                        StarterCard("Build an app", "BRO makes it on GitHub and keeps fixing until it builds") { vm.send("create an app: a simple calculator") }
+                        StarterCard("Quiz me", "Practice a subject; I remember your weak points") { vm.send("quiz me on DBMS") }
+                        StarterCard("Do it on my phone", "Say what you want done in any app") { vm.send("open settings and turn on dark mode") }
                     }
+                    Spacer(Modifier.height(16.dp))
                 }
             } else {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
                 LazyColumn(
                     state = listState,
-                    modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier.fillMaxSize().widthIn(max = 760.dp).padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
                     val lastBroId = vm.messages.lastOrNull { !it.fromUser }?.id
                     items(vm.messages, key = { it.id }) { message ->
@@ -216,38 +222,43 @@ fun ChatScreen(
                     if (thinking || com.bro.assistant.Activity.active) item(key = "activity") { ActivityCard(live = true) }
                     else if (com.bro.assistant.Activity.lastItems.isNotEmpty() && vm.messages.lastOrNull()?.fromUser == false) item(key = "activity_done") { ActivityCard(live = false) }
                 }
+                }
             }
         }
 
-        // ── Input: one pill; the right button is Mic when empty, Send when typing, Stop while listening ──
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.Bottom,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            TextField(
-                value = input,
-                onValueChange = { input = it },
-                modifier = Modifier.weight(1f).heightIn(min = 48.dp),
-                placeholder = { Text("Message BRO", color = BroColors.TextSecondary) },
-                maxLines = 4,
-                shape = RoundedCornerShape(26.dp),
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = BroColors.Panel,
-                    unfocusedContainerColor = BroColors.Panel,
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent,
-                    cursorColor = NeonCyan,
-                    focusedTextColor = BroColors.TextPrimary,
-                    unfocusedTextColor = BroColors.TextPrimary
-                ),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                keyboardActions = KeyboardActions(onSend = { submit() })
-            )
-            when {
-                vm.state == BroState.LISTENING -> RoundAction(RoundIcon.STOP, BroColors.Error, "Stop listening", onMic)
-                input.isNotBlank() -> RoundAction(RoundIcon.SEND, BroColors.Accent, "Send message") { submit() }
-                else -> RoundAction(RoundIcon.MIC, BroColors.Accent, "Talk to BRO", onMic)
+        // ── Composer: one rounded card; the button is Mic when empty, Send when typing, Stop while listening ──
+        Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
+            Row(
+                Modifier.widthIn(max = 760.dp).fillMaxWidth()
+                    .clip(RoundedCornerShape(28.dp)).background(BroColors.Panel)
+                    .border(1.dp, BroColors.Outline, RoundedCornerShape(28.dp))
+                    .padding(start = 6.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                TextField(
+                    value = input,
+                    onValueChange = { input = it },
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                    placeholder = { Text("Message BRO", color = BroColors.TextSecondary) },
+                    maxLines = 6,
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent,
+                        cursorColor = BroColors.Accent,
+                        focusedTextColor = BroColors.TextPrimary,
+                        unfocusedTextColor = BroColors.TextPrimary
+                    ),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                    keyboardActions = KeyboardActions(onSend = { submit() })
+                )
+                when {
+                    vm.state == BroState.LISTENING -> RoundAction(RoundIcon.STOP, BroColors.Error, "Stop listening", onMic)
+                    input.isNotBlank() -> RoundAction(RoundIcon.SEND, BroColors.Accent, "Send message") { submit() }
+                    else -> RoundAction(RoundIcon.MIC, BroColors.Accent, "Talk to BRO", onMic)
+                }
             }
         }
     }
@@ -274,7 +285,7 @@ fun ChatScreen(
 private fun Bubble(message: ChatMessage, speakingNow: Boolean, onListen: () -> Unit, onMute: () -> Unit) {
     val appear = remember { androidx.compose.animation.core.Animatable(0f) }
     LaunchedEffect(Unit) { appear.animateTo(1f, androidx.compose.animation.core.tween(220)) }
-    val shape = if (message.fromUser) RoundedCornerShape(18.dp, 18.dp, 4.dp, 18.dp) else RoundedCornerShape(18.dp, 18.dp, 18.dp, 4.dp)
+    val shape = RoundedCornerShape(20.dp, 20.dp, 6.dp, 20.dp)
     val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
     var copied by remember { mutableStateOf(false) }
     LaunchedEffect(copied) { if (copied) { kotlinx.coroutines.delay(1800); copied = false } }
@@ -282,14 +293,13 @@ private fun Bubble(message: ChatMessage, speakingNow: Boolean, onListen: () -> U
         Modifier.fillMaxWidth().graphicsLayer { alpha = appear.value; translationY = (1f - appear.value) * 12f },
         horizontalAlignment = if (message.fromUser) Alignment.End else Alignment.Start
     ) {
-        Box(
-            Modifier
-                .widthIn(max = 320.dp)
-                .background(if (message.fromUser) BroColors.UserBubble else BroColors.BroBubble, shape)
-                .border(1.dp, if (message.fromUser) NeonCyan.copy(alpha = 0.25f) else BroColors.Outline, shape)
-                .padding(horizontal = 14.dp, vertical = 10.dp)
-        ) {
-            MessageBody(message.text, markdown = !message.fromUser)
+        // you: a soft bubble on the right. BRO: plain text across the full width, like a document.
+        if (message.fromUser) {
+            Box(
+                Modifier.widthIn(max = 320.dp).background(BroColors.UserBubble, shape).padding(horizontal = 14.dp, vertical = 10.dp)
+            ) { MessageBody(message.text, markdown = false) }
+        } else {
+            Box(Modifier.fillMaxWidth().padding(horizontal = 2.dp)) { MessageBody(message.text, markdown = true) }
         }
         // under BRO's replies: Copy, and Mute (while it talks) or Listen
         if (!message.fromUser && message.text.isNotBlank()) {
