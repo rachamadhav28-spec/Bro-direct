@@ -229,18 +229,28 @@ class AppBuilder(private val prefs: PreferencesStore, private val gh: GitHubClie
 
         val names = gh.listFiles(repo, AppTemplate.SOURCE_DIR).filter { it.endsWith(".kt") }
         if (names.isEmpty()) return "I only know how to fix apps that BRO created."
-        val current = buildString {
-            for (n in names) {
-                if (isNotEmpty()) append("\n\n")
-                append("FILE: ").append(AppTemplate.SOURCE_DIR).append(n).append('\n')
-                append(gh.readFile(repo, AppTemplate.SOURCE_DIR + n))
-            }
+        val engine = if (mode == "offline") "offline" else if (mode == "team" && !cloudReady()) "offline" else "cloud"
+        // Fix only the files the compiler complained about, one at a time: a short plain-code answer each,
+        // instead of one huge JSON with every file (that is what broke big apps).
+        val errorLines = errors.lines()
+        val targets = names.filter { n -> errorLines.any { it.contains(n) } }.ifEmpty { names }
+        val ai = mutableMapOf<String, String>()
+        for (n in targets) {
+            val path = AppTemplate.SOURCE_DIR + n
+            val old = gh.readFile(repo, path)
+            val mine = errorLines.filter { it.contains(n) }.joinToString("\n").ifBlank { errors }.take(3500)
+            com.bro.assistant.Activity.step("Fixing $n")
+            val reply = try {
+                gemini.generate(
+                    FIX_FILE_PROMPT, "Compile errors:\n$mine\n\nFile $n:\n$old", json = false, timeoutMs = 150000, engine = engine
+                )
+            } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { continue }
+            val fenced = Regex("```[A-Za-z]*\\n([\\s\\S]*?)```").find(reply)?.groupValues?.get(1) ?: reply.trim().removePrefix("```kotlin").removeSuffix("```")
+            val code = fenced.trim()
+            // never push a half answer: it must be a whole Kotlin file of about the same size
+            if (!code.contains("package com.bro.app") || code.length < old.length * 0.6) continue
+            ai[path] = CodeLint.fix(code)
         }
-        val raw = gemini.generate(
-            FIX_PROMPT, "Build errors:\n$errors\n\nCurrent files:\n$current", json = true, timeoutMs = 150000,
-            engine = if (mode == "offline") "offline" else if (mode == "team" && !cloudReady()) "offline" else "cloud"
-        )
-        val ai = readFiles(parseJson(raw), requireMain = false).associate { it.path to CodeLint.fix(it.content) }.toMutableMap()
         // certain repairs (missing imports, experimental opt-ins) on every file, whatever the AI changed
         for (n in names) {
             val path = AppTemplate.SOURCE_DIR + n
@@ -286,6 +296,10 @@ class AppBuilder(private val prefs: PreferencesStore, private val gh: GitHubClie
     }
 
     companion object {
+        private const val FIX_FILE_PROMPT =
+            "You fix Kotlin / Jetpack Compose (Material3, Kotlin 2.0) compile errors. You get the compiler errors and ONE file. " +
+                "Reply with ONLY the complete corrected file in a single ```kotlin block: keep everything that works, change only what the errors need, " +
+                "add any missing imports, keep the first line 'package com.bro.app'. Do not shorten the file and do not explain."
         private val RULES = """
             Target: Android, Kotlin 2.0, Jetpack Compose with Material3, compileSdk 35, minSdk 26.
             Rules (the code must compile on the first try):

@@ -94,7 +94,8 @@ class GitHubCommands(private val context: Context, private val prefs: Preference
         lastCode: String?,
         confirm: suspend (String) -> Boolean
     ): String? {
-        var text = TeluguNormalizer.clause(TeluguNormalizer.preprocess(rawText))
+        // people often type or paste the command inside quote marks
+        var text = TeluguNormalizer.clause(TeluguNormalizer.preprocess(rawText.trim().trim('"', '\u201C', '\u201D', '\'', '\u2018', '\u2019')))
             .trim().trimEnd('.', '!', '?')
         if (!matchesAny(text)) {
             // any wording: short, long, casual, Telugu, Tenglish
