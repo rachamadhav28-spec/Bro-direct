@@ -1,5 +1,6 @@
 package com.bro.assistant
 
+import com.bro.assistant.ai.Skill
 import com.bro.assistant.ai.DesignGuide
 import com.bro.assistant.ai.GeminiClient
 import com.bro.assistant.ai.GitHubClient
@@ -249,7 +250,7 @@ class AppBuilder(private val prefs: PreferencesStore, private val gh: GitHubClie
             val reply = try {
                 gemini.generate(
                     FIX_FILE_PROMPT, "Compile errors:\n$mine\n\nOther files in the project (never declare these names again here):\n$others\n\nFile $n:\n$old",
-                    json = false, timeoutMs = 150000, engine = engine
+                    json = false, timeoutMs = 150000, skill = Skill.CODE, engine = engine
                 )
             } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { continue }
             val fenced = Regex("```[A-Za-z]*\\n([\\s\\S]*?)```").find(reply)?.groupValues?.get(1) ?: reply.trim().removePrefix("```kotlin").removeSuffix("```")
