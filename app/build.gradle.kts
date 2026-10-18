@@ -64,6 +64,8 @@ dependencies {
     implementation("com.google.mediapipe:tasks-genai:0.10.24")
     // LiteRT-LM runs Gemma 4 (.litertlm files)
     implementation("com.google.ai.edge.litertlm:litertlm-android:0.18.0")
+    // llama.cpp runs .gguf models (Qwen2.5-Coder etc.) inside the app; prebuilt AAR, arm64 only (approved by the owner)
+    implementation("dev.ffmpegkit-maintained:llama-android:0.1.1")
     implementation("androidx.activity:activity-compose:1.9.3")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")

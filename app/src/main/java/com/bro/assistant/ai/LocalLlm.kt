@@ -33,12 +33,20 @@ object LocalLlm {
         context.applicationContext.getExternalFilesDir(null) ?: context.applicationContext.filesDir
 
     /** Gemma 4 and newer models come as .litertlm (LiteRT-LM); older ones as .task (MediaPipe). */
-    fun fileNameFor(link: String): String =
-        if (link.substringBefore('?').lowercase().endsWith(".litertlm")) "offline_model.litertlm" else "offline_model.task"
+    fun fileNameFor(link: String): String {
+        val l = link.substringBefore('?').lowercase()
+        return when {
+            l.endsWith(".gguf") -> "offline_model.gguf"          // llama.cpp models such as Qwen2.5-Coder
+            l.endsWith(".litertlm") -> "offline_model.litertlm"
+            else -> "offline_model.task"
+        }
+    }
 
     fun fileFor(context: Context, link: String): File = File(dir(context), fileNameFor(link))
 
     fun modelFile(context: Context): File {
+        val gguf = File(dir(context), "offline_model.gguf")
+        if (gguf.exists()) return gguf
         val lm = File(dir(context), "offline_model.litertlm")
         return if (lm.exists()) lm else File(dir(context), "offline_model.task")
     }
@@ -50,7 +58,7 @@ object LocalLlm {
         val part = partFile(context, link)
         if (!part.exists() || part.length() < 1_000_000L) return false
         val dest = fileFor(context, link)
-        File(dir(context), "offline_model.litertlm").delete(); File(dir(context), "offline_model.task").delete()
+        File(dir(context), "offline_model.litertlm").delete(); File(dir(context), "offline_model.task").delete(); File(dir(context), "offline_model.gguf").delete()
         return part.renameTo(dest)
     }
 
@@ -67,6 +75,13 @@ object LocalLlm {
                     val i = c.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
                     if (c.moveToFirst() && i >= 0) c.getString(i) else null
                 } ?: uri.lastPathSegment.orEmpty()
+                if (name.lowercase().endsWith(".gguf")) {
+                    val size = app.contentResolver.query(uri, null, null, null, null)?.use { c ->
+                        val i = c.getColumnIndex(android.provider.OpenableColumns.SIZE)
+                        if (c.moveToFirst() && i >= 0 && !c.isNull(i)) c.getLong(i) else -1L
+                    } ?: -1L
+                    GgufEngine.fitProblem(app, size)?.let { copyStatus = it; return@launch }
+                }
                 release()
                 val part = partFile(app, name)
                 part.delete()
@@ -82,7 +97,9 @@ object LocalLlm {
                     }
                 }
                 prefs.localModelName = name
-                copyStatus = if (finishPart(app, name)) "Offline brain installed." else "That file looks incomplete or is not a model file."
+                copyStatus = if (finishPart(app, name)) {
+                    "Offline brain installed." + (if (name.lowercase().endsWith(".gguf")) GgufEngine.tightWarning(app, modelFile(app).length())?.let { " $it" }.orEmpty() else "")
+                } else "That file looks incomplete or is not a model file."
             } catch (e: Throwable) {
                 ErrorHandler.log("LocalLlm", "copy failed", e)
                 copyStatus = "Could not copy that file: ${e.message ?: e.javaClass.simpleName}"
@@ -97,8 +114,10 @@ object LocalLlm {
         release()
         File(dir(context), "offline_model.litertlm").delete()
         File(dir(context), "offline_model.task").delete()
+        File(dir(context), "offline_model.gguf").delete()
         File(dir(context), "offline_model.litertlm.part").delete()
         File(dir(context), "offline_model.task.part").delete()
+        File(dir(context), "offline_model.gguf.part").delete()
     }
 
     fun isInstalled(context: Context): Boolean = modelFile(context).let { it.exists() && it.length() > 1_000_000L }
@@ -109,14 +128,33 @@ object LocalLlm {
 
     private var lmEngine: Engine? = null
     private var lmPath: String? = null
+    private var ggufHandle: GgufHandle? = null
 
     fun release() {
+        ggufHandle?.let { g -> ggufHandle = null; copyScope.launch { try { g.release() } catch (_: Throwable) {} } }
         try { engine?.close() } catch (_: Exception) {}
         try { lmEngine?.close() } catch (_: Exception) {}
         engine = null
         enginePath = null
         lmEngine = null
         lmPath = null
+    }
+
+    /** Loads a .gguf model with llama.cpp. Refuses a file that is too big for this phone's memory instead of crashing the app. */
+    private suspend fun loadGguf(context: Context): GgufHandle {
+        val file = modelFile(context)
+        ggufHandle?.let { if (it.path == file.absolutePath) return it }
+        release()
+        GgufEngine.fitProblem(context, file.length())?.let { throw IllegalStateException(it) }
+        try {
+            val h = GgufEngine.open(file.absolutePath)
+            ggufHandle = h; contextTokens = GgufEngine.CONTEXT_TOKENS
+            return h
+        } catch (t: Throwable) {
+            ErrorHandler.log("LocalLlm", "GGUF load failed", t)
+            throw IllegalStateException("The offline model could not start: ${t.message ?: t.javaClass.simpleName}. " +
+                "It may need more free memory, or the file may be incomplete.")
+        }
     }
 
     private fun loadLiteRt(context: Context): Engine {
@@ -164,7 +202,8 @@ object LocalLlm {
             lock.withLock {
                 val ctx = prefs.appContext
                 if (!isInstalled(ctx)) return@withLock
-                if (modelFile(ctx).name.endsWith(".litertlm")) loadLiteRt(ctx) else load(ctx)
+                val n = modelFile(ctx).name
+                if (n.endsWith(".gguf")) loadGguf(ctx) else if (n.endsWith(".litertlm")) loadLiteRt(ctx) else load(ctx)
             }
         } catch (e: Exception) { ErrorHandler.log("LocalLlm", "warm-up failed", e) }
     }
@@ -173,9 +212,12 @@ object LocalLlm {
         withContext(Dispatchers.IO) {
             lock.withLock {
                 val ctx = prefs.appContext
-                val useLm = modelFile(ctx).name.endsWith(".litertlm")
-                if (useLm) loadLiteRt(ctx) else load(ctx)
-                val reserve = if (json) 400 else 900
+                val modelName = modelFile(ctx).name
+                val useGguf = modelName.endsWith(".gguf")
+                val useLm = modelName.endsWith(".litertlm")
+                if (useGguf) loadGguf(ctx) else if (useLm) loadLiteRt(ctx) else load(ctx)
+                // the GGUF engine has room for a whole file of code in one answer
+                val reserve = if (useGguf) (if (json) 600 else 3000) else if (json) 400 else 900
                 val budgetChars = ((contextTokens - reserve).coerceAtLeast(300)) * 3
                 val sys = if (json) system + "\nReply with ONE valid JSON object and nothing else." else system
                 var body = user
@@ -186,7 +228,10 @@ object LocalLlm {
                     val head = room * 2 / 5
                     body = body.take(head) + "\n...\n" + body.takeLast(room - head - 5)
                 }
-                val raw = if (useLm) {
+                val raw = if (useGguf) {
+                    // llama.cpp applies the chat template stored inside the GGUF file (ChatML for Qwen)
+                    ggufHandle!!.complete(sys, body, reserve)
+                } else if (useLm) {
                     // LiteRT-LM applies the model's own chat template
                     lmEngine!!.createConversation().use { c -> c.sendMessage(sys + "\n\n" + body).toString() }
                 } else {

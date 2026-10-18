@@ -84,14 +84,20 @@ fun OfflineBrainSection(prefs: PreferencesStore) {
 
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(
-            if (installed) "Offline brain: installed (" + (LocalLlm.modelFile(ctx).length() / 1_000_000) + " MB)"
+            "This phone has " + String.format(java.util.Locale.US, "%.1f", com.bro.assistant.ai.GgufEngine.totalRamBytes(ctx) / 1e9) +
+                " GB of memory. A .gguf model must be smaller than about 80% of that (best: under 60%).",
+            color = BroColors.TextSecondary, fontSize = 12.sp
+        )
+        Text(
+            if (installed) "Offline brain: installed (" + (LocalLlm.modelFile(ctx).length() / 1_000_000) + " MB, " + LocalLlm.modelFile(ctx).extension + ")"
             else "Offline brain: not installed",
             color = if (installed) BroColors.Success else BroColors.TextSecondary
         )
         Text(
             "Lets BRO think on the phone with no internet and no API key. One-time download (use Wi-Fi). " +
                 "Recommended: Gemma 4 E2B from litert-community (about 2.6 GB, needs roughly 4 GB free RAM). " +
-                "Or paste the link of any .litertlm / .task model file, or download one yourself and choose the file.",
+                "Or paste the link of any .gguf / .litertlm / .task model file, or download one yourself and choose the file. " +
+                "A .gguf file (like Qwen2.5-Coder) runs with llama.cpp inside BRO; it must fit in this phone's memory.",
             color = Color.Gray, fontSize = 12.sp
         )
         OutlinedButton(onClick = {
@@ -107,6 +113,12 @@ fun OfflineBrainSection(prefs: PreferencesStore) {
             link = "https://huggingface.co/litert-community/Qwen3-4B/resolve/main/qwen3_4b_mixed_int4.litertlm"
         }) { Text("Qwen3 4B (good at code, 2.7 GB)") }
         OutlinedButton(onClick = {
+            link = "https://huggingface.co/Qwen/Qwen2.5-Coder-3B-Instruct-GGUF/resolve/main/qwen2.5-coder-3b-instruct-q4_k_m.gguf"
+        }) { Text("Qwen2.5 Coder 3B GGUF (llama.cpp, 2.1 GB)") }
+        OutlinedButton(onClick = {
+            link = "https://huggingface.co/Qwen/Qwen2.5-Coder-7B-Instruct-GGUF/resolve/main/qwen2.5-coder-7b-instruct-q4_k_m.gguf"
+        }) { Text("Qwen2.5 Coder 7B GGUF (llama.cpp, 4.7 GB, 8 GB phone)") }
+        OutlinedButton(onClick = {
             link = "https://huggingface.co/litert-community/gemma-4-12B-it-litert-lm/resolve/main/gemma-4-12B-it.litertlm"
         }) { Text("Gemma 4 12B (heavy, 6.6 GB, needs 8 GB+ RAM)") }
         Text(
@@ -115,7 +127,7 @@ fun OfflineBrainSection(prefs: PreferencesStore) {
         )
         OutlinedTextField(
             value = link, onValueChange = { link = it },
-            label = { Text("Link to the .task model file") }, singleLine = true, modifier = Modifier.fillMaxWidth()
+            label = { Text("Link to the model file (.gguf, .litertlm or .task)") }, singleLine = true, modifier = Modifier.fillMaxWidth()
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(enabled = link.startsWith("https://") && downloadId < 0, onClick = {
