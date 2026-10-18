@@ -107,17 +107,8 @@ fun OfflineBrainSection(prefs: PreferencesStore) {
             link = "https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it.litertlm"
         }) { Text("Gemma 4 E4B (better at code, 3.7 GB)") }
         OutlinedButton(onClick = {
-            link = "https://huggingface.co/litert-community/Qwen2.5-Coder-3B-Instruct/resolve/main/Qwen2.5_Coder_3B_It.litertlm"
-        }) { Text("Qwen2.5 Coder 3B (made for code, 3.4 GB)") }
-        OutlinedButton(onClick = {
-            link = "https://huggingface.co/litert-community/Qwen3-4B/resolve/main/qwen3_4b_mixed_int4.litertlm"
-        }) { Text("Qwen3 4B (good at code, 2.7 GB)") }
-        OutlinedButton(onClick = {
-            link = "https://huggingface.co/Qwen/Qwen2.5-Coder-3B-Instruct-GGUF/resolve/main/qwen2.5-coder-3b-instruct-q4_k_m.gguf"
-        }) { Text("Qwen2.5 Coder 3B GGUF (llama.cpp, 2.1 GB)") }
-        OutlinedButton(onClick = {
             link = "https://huggingface.co/Qwen/Qwen2.5-Coder-7B-Instruct-GGUF/resolve/main/qwen2.5-coder-7b-instruct-q4_k_m.gguf"
-        }) { Text("Qwen2.5 Coder 7B GGUF (llama.cpp, 4.7 GB, 8 GB phone)") }
+        }) { Text("Qwen2.5 Coder 7B GGUF (llama.cpp, 4.7 GB)") }
         OutlinedButton(onClick = {
             link = "https://huggingface.co/litert-community/gemma-4-12B-it-litert-lm/resolve/main/gemma-4-12B-it.litertlm"
         }) { Text("Gemma 4 12B (heavy, 6.6 GB, needs 8 GB+ RAM)") }
