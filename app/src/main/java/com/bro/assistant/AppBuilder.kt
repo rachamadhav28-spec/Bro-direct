@@ -239,6 +239,7 @@ class AppBuilder(private val prefs: PreferencesStore, private val gh: GitHubClie
         val targets = names.filter { n -> errorLines.any { it.contains(n) } }.ifEmpty { names }
         val declRx = Regex("(?m)^(?:(?:sealed|data|enum|abstract|open|private|internal)\\s+)*(?:class|object|interface|fun|val|var|typealias)\\s+[^\\n{=]{1,90}")
         val ai = mutableMapOf<String, String>()
+        val whyNot = mutableListOf<String>()
         for (n in targets) {
             val path = AppTemplate.SOURCE_DIR + n
             val old = orig.getValue(path)
@@ -252,11 +253,17 @@ class AppBuilder(private val prefs: PreferencesStore, private val gh: GitHubClie
                     FIX_FILE_PROMPT, "Compile errors:\n$mine\n\nOther files in the project (never declare these names again here):\n$others\n\nFile $n:\n$old",
                     json = false, timeoutMs = 150000, skill = Skill.CODE, engine = engine
                 )
-            } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { continue }
+            } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) {
+                whyNot += "$n: the AI failed (${e.message ?: e.javaClass.simpleName})"; continue
+            }
             val fenced = Regex("```[A-Za-z]*\\n([\\s\\S]*?)```").find(reply)?.groupValues?.get(1) ?: reply.trim().removePrefix("```kotlin").removeSuffix("```")
             val code = fenced.trim()
             // never push a half answer: it must be a whole Kotlin file of about the same size
-            if (!code.contains("package com.bro.app") || code.length < old.length * 0.6) continue
+            if (!code.contains("package com.bro.app") || code.length < old.length * 0.6) {
+                whyNot += if (!code.contains("package com.bro.app")) "$n: the AI did not return a whole Kotlin file"
+                    else "$n: the AI's file was cut short (${code.length} of about ${old.length} characters)"
+                continue
+            }
             ai[path] = CodeLint.fix(code)
         }
         // certain repairs on every file, whatever the AI changed: same class declared in two files, missing imports, opt-ins
@@ -268,7 +275,14 @@ class AppBuilder(private val prefs: PreferencesStore, private val gh: GitHubClie
             val fixed = CodeLint.fix(content)
             if (fixed != content) ai[path] = fixed
         }
-        if (ai.isEmpty()) return "I couldn't find anything to change. See the errors with \"why did the build fail in ${repo.substringAfter('/')}\"."
+        if (ai.isEmpty()) {
+            val short = repo.substringAfter('/')
+            return "I couldn't repair it this time." +
+                (if (whyNot.isNotEmpty()) "\nWhy: " + whyNot.joinToString("; ") + "." else "") +
+                (if (engine == "offline") "\nThe offline brain is slow on a phone, so a whole file often gets cut short or takes too long. " +
+                    "In Settings > Offline brain, set \"When BRO builds an app\" to API keys or Team and say \"fix the build of $short\" again." else "") +
+                "\nSee the errors with \"why did the build fail in $short\"."
+        }
         if (!confirm("Push a fix for ${ai.keys.joinToString { it.substringAfterLast('/') }} in $repo?")) {
             return "Okay, I didn't push it."
         }
