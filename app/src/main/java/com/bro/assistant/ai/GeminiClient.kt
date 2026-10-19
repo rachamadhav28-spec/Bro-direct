@@ -35,6 +35,17 @@ class GeminiClient(private val prefs: PreferencesStore) {
             return LocalLlm.generate(prefs, system, user, json)
         }
         if (engine != "cloud" && LocalLlm.willUse(prefs)) return LocalLlm.generate(prefs, system, user, json)
+        // coding: the offline Qwen (.gguf) first when the owner installed one; if it fails, the cloud AIs below take over
+        if (engine == "auto" && skill == Skill.CODE && prefs.codeLocalFirst && LocalLlm.ggufReady(prefs.appContext)) {
+            try {
+                com.bro.assistant.Activity.step("Asking the offline code model")
+                return LocalLlm.generate(prefs, system, user, json)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                com.bro.assistant.ErrorHandler.log("GeminiClient", "offline code model failed, using the cloud", e)
+            }
+        }
         val hasGemini = prefs.apiKey.isNotBlank()
         val hasOthers = prefs.hasProviderKeys()
         var failure: Exception? = null

@@ -44,7 +44,45 @@ object LocalLlm {
 
     fun fileFor(context: Context, link: String): File = File(dir(context), fileNameFor(link))
 
+    /** A model file used where it is (chosen with "All files access"): null when none is set or it is gone. */
+    fun inPlaceFile(context: Context): File? =
+        PreferencesStore(context.applicationContext).localModelPath.takeIf { it.isNotBlank() }?.let { File(it) }?.takeIf { it.exists() && it.canRead() }
+
+    fun allFilesAccess(): Boolean =
+        android.os.Build.VERSION.SDK_INT >= 30 && android.os.Environment.isExternalStorageManager()
+
+    /** "content://com.android.externalstorage.documents/..primary:Download/x.gguf" -> "/storage/emulated/0/Download/x.gguf" */
+    fun pathOf(uri: android.net.Uri): String? = try {
+        val id = android.provider.DocumentsContract.getDocumentId(uri)
+        when {
+            uri.authority == "com.android.externalstorage.documents" && id.startsWith("primary:") -> "/storage/emulated/0/" + id.removePrefix("primary:")
+            id.startsWith("raw:") -> id.removePrefix("raw:")
+            else -> null
+        }
+    } catch (e: Exception) { null }
+
+    /** Uses a chosen .gguf file in place (no copy). False when that is not possible and the file has to be copied. */
+    fun useInPlace(context: Context, uri: android.net.Uri, prefs: PreferencesStore): Boolean {
+        val app = context.applicationContext
+        val path = pathOf(uri) ?: return false
+        if (!path.lowercase().endsWith(".gguf") || !allFilesAccess()) return false
+        val f = File(path)
+        if (!f.exists() || !f.canRead()) return false
+        GgufEngine.fitProblem(app, f.length())?.let { copyStatus = it; return true }
+        release()
+        File(dir(app), "offline_model.litertlm").delete(); File(dir(app), "offline_model.task").delete(); File(dir(app), "offline_model.gguf").delete()
+        prefs.localModelPath = path
+        prefs.localModelName = f.name
+        copyStatus = "Offline brain ready: ${f.name} (${f.length() / 1_000_000} MB), used where it is, nothing copied." +
+            (GgufEngine.tightWarning(app, f.length())?.let { " $it" }.orEmpty())
+        return true
+    }
+
+    /** True when the installed offline model is a .gguf (llama.cpp) file. */
+    fun ggufReady(context: Context): Boolean = isInstalled(context) && modelFile(context).name.lowercase().endsWith(".gguf")
+
     fun modelFile(context: Context): File {
+        inPlaceFile(context)?.let { return it }
         val gguf = File(dir(context), "offline_model.gguf")
         if (gguf.exists()) return gguf
         val lm = File(dir(context), "offline_model.litertlm")
@@ -83,6 +121,7 @@ object LocalLlm {
                     GgufEngine.fitProblem(app, size)?.let { copyStatus = it; return@launch }
                 }
                 release()
+                prefs.localModelPath = ""
                 val part = partFile(app, name)
                 part.delete()
                 app.contentResolver.openInputStream(uri)?.use { input ->
@@ -112,6 +151,7 @@ object LocalLlm {
 
     fun deleteAll(context: Context) {
         release()
+        PreferencesStore(context.applicationContext).localModelPath = ""   // the user's own file stays where it is
         File(dir(context), "offline_model.litertlm").delete()
         File(dir(context), "offline_model.task").delete()
         File(dir(context), "offline_model.gguf").delete()
@@ -147,8 +187,9 @@ object LocalLlm {
         release()
         GgufEngine.fitProblem(context, file.length())?.let { throw IllegalStateException(it) }
         try {
-            val h = GgufEngine.open(file.absolutePath)
-            ggufHandle = h; contextTokens = GgufEngine.CONTEXT_TOKENS
+            val ctxTokens = GgufEngine.contextFor(context, file.length())
+            val h = GgufEngine.open(file.absolutePath, ctxTokens)
+            ggufHandle = h; contextTokens = ctxTokens
             return h
         } catch (t: Throwable) {
             ErrorHandler.log("LocalLlm", "GGUF load failed", t)
@@ -217,7 +258,7 @@ object LocalLlm {
                 val useLm = modelName.endsWith(".litertlm")
                 if (useGguf) loadGguf(ctx) else if (useLm) loadLiteRt(ctx) else load(ctx)
                 // the GGUF engine has room for a whole file of code in one answer
-                val reserve = if (useGguf) (if (json) 600 else 3000) else if (json) 400 else 900
+                val reserve = if (useGguf) (if (json) 600 else contextTokens * 4 / 10) else if (json) 400 else 900
                 val budgetChars = ((contextTokens - reserve).coerceAtLeast(300)) * 3
                 val sys = if (json) system + "\nReply with ONE valid JSON object and nothing else." else system
                 var body = user

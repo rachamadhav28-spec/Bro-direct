@@ -47,13 +47,19 @@ fun OfflineBrainSection(prefs: PreferencesStore) {
     var status by remember { mutableStateOf("") }
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
-        if (uri != null) LocalLlm.copyFrom(ctx, uri, prefs)
+        if (uri != null) {
+            // a .gguf file in Downloads is used where it is when BRO has "All files access"; otherwise it is copied
+            if (!LocalLlm.useInPlace(ctx, uri, prefs)) LocalLlm.copyFrom(ctx, uri, prefs)
+        }
     }
+    var allFiles by remember { mutableStateOf(LocalLlm.allFilesAccess()) }
     // the copy runs in the background (not tied to this screen); show its progress and result here
     LaunchedEffect(LocalLlm.copyStatus) {
         if (LocalLlm.copyStatus.isNotEmpty()) status = LocalLlm.copyStatus
         installed = LocalLlm.isInstalled(ctx)
     }
+
+    LaunchedEffect(Unit) { while (true) { allFiles = LocalLlm.allFilesAccess(); delay(1500) } }
 
     // follow the download while it runs
     LaunchedEffect(downloadId) {
@@ -85,7 +91,7 @@ fun OfflineBrainSection(prefs: PreferencesStore) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(
             "This phone has " + String.format(java.util.Locale.US, "%.1f", com.bro.assistant.ai.GgufEngine.totalRamBytes(ctx) / 1e9) +
-                " GB of memory. A .gguf model must be smaller than about 80% of that (best: under 60%).",
+                " GB of memory. A .gguf model up to about 130% of that can still load (slowly); best is under 60%.",
             color = BroColors.TextSecondary, fontSize = 12.sp
         )
         Text(
@@ -116,6 +122,22 @@ fun OfflineBrainSection(prefs: PreferencesStore) {
             "All free. Bigger = smarter at code but slower and needs more free RAM. If a download says not allowed, accept the model's licence on its Hugging Face page in your browser, download the file there and use Choose file.",
             color = Color.Gray, fontSize = 12.sp
         )
+        if (!allFiles) {
+            Text(
+                "Big model file already in your Downloads? Give BRO \"All files access\" once, then tap Choose file and pick it: BRO uses it where it is, with no copy.",
+                color = BroColors.TextSecondary, fontSize = 12.sp
+            )
+            OutlinedButton(onClick = {
+                com.bro.assistant.security.LockGrace.allowFor(15 * 60_000L)
+                try {
+                    val i = android.content.Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:" + ctx.packageName))
+                    i.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    ctx.startActivity(i)
+                } catch (e: Exception) {
+                    status = "Open Settings, Apps, BRO, Permissions, All files access and turn it on."
+                }
+            }) { Text("Allow All files access") }
+        } else Text("All files access: on. Choose file uses a .gguf in place, no copy.", color = BroColors.Success, fontSize = 12.sp)
         OutlinedTextField(
             value = link, onValueChange = { link = it },
             label = { Text("Link to the model file (.gguf, .litertlm or .task)") }, singleLine = true, modifier = Modifier.fillMaxWidth()
@@ -147,6 +169,11 @@ fun OfflineBrainSection(prefs: PreferencesStore) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text("Always use the offline brain (never Gemini)", color = BroColors.TextPrimary, modifier = Modifier.weight(1f))
             Switch(checked = offlineOnly, onCheckedChange = { offlineOnly = it; prefs.brainMode = if (it) "offline" else "auto" })
+        }
+        var codeLocal by remember { mutableStateOf(prefs.codeLocalFirst) }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("Use the offline code model (.gguf) first for coding (slow, falls back to the cloud)", color = BroColors.TextPrimary, modifier = Modifier.weight(1f))
+            Switch(checked = codeLocal, onCheckedChange = { codeLocal = it; prefs.codeLocalFirst = it })
         }
         var buildMode by remember { mutableStateOf(prefs.appBuildMode) }
         Text("When BRO builds an app", color = BroColors.TextPrimary, fontSize = 15.sp)

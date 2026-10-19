@@ -61,6 +61,14 @@ class PreferencesStore(context: Context) {
         get() = sp.getBoolean("thinking_unsupported", false)
         set(value) { sp.edit().putBoolean("thinking_unsupported", value).apply() }
 
+    /** Full path of a model file BRO uses where it is (no copy), such as /storage/emulated/0/Download/model.gguf. Never deleted by BRO. */
+    var localModelPath: String
+        get() = sp.getString("local_model_path", "") ?: ""
+        set(value) { sp.edit().putString("local_model_path", value).apply() }
+    /** Coding requests go to the offline .gguf model first when one is installed (falls back to the cloud AIs if it fails). */
+    var codeLocalFirst: Boolean
+        get() = sp.getBoolean("code_local_first", true)
+        set(value) { sp.edit().putBoolean("code_local_first", value).apply() }
     var localModelName: String
         get() = str("local_model_name", "")
         set(value) { sp.edit().putString("local_model_name", value).apply() }

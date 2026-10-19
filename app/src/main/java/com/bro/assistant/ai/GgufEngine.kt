@@ -37,8 +37,9 @@ object GgufEngine {
     fun fitProblem(ctx: Context, fileBytes: Long): String? {
         if (fileBytes <= 0L) return null
         val ram = totalRamBytes(ctx)
-        if (fileBytes <= ram * 8 / 10) return null
-        return "This model file is ${gb(fileBytes)} but this phone has ${gb(ram)} of memory, so it cannot run it. " +
+        // the file is memory-mapped, so a file a little bigger than the memory still loads (slowly); far bigger would get the app killed
+        if (fileBytes <= ram * 13 / 10) return null
+        return "This model file is ${gb(fileBytes)} but this phone has only ${gb(ram)} of memory, so it cannot run it. " +
             "Choose a smaller GGUF, for example Qwen2.5-Coder 3B q4_k_m (2.1 GB), or the 7B q4_k_m (4.7 GB) on an 8 GB phone."
     }
 
@@ -50,12 +51,16 @@ object GgufEngine {
         return "Heads up: ${gb(fileBytes)} on a ${gb(ram)} phone is tight. Close other apps; answers will be slow."
     }
 
+    /** A smaller window when the model already fills most of the memory (the window itself costs memory). */
+    fun contextFor(ctx: Context, fileBytes: Long): Int =
+        if (fileBytes > totalRamBytes(ctx) * 6 / 10) 4096 else CONTEXT_TOKENS
+
     private fun defaultThreads(): Int = (Runtime.getRuntime().availableProcessors() / 2).coerceIn(2, 6)
 
-    suspend fun open(path: String): GgufHandle {
+    suspend fun open(path: String, contextSize: Int = CONTEXT_TOKENS): GgufHandle {
         val model = Llama.loadModel(
             modelPath = path,
-            config = LlamaConfig(contextSize = CONTEXT_TOKENS, threads = defaultThreads())
+            config = LlamaConfig(contextSize = contextSize, threads = defaultThreads())
         )
         return GgufHandle(
             path,

@@ -44,7 +44,10 @@ object CodeAgent {
             CodeFormat.RULES
 
     private fun localCoderOn(c: Context): Boolean =
-        try { com.bro.assistant.memory.PreferencesStore(c).providerKey("colab").isNotBlank() } catch (e: Exception) { false }
+        try {
+            val p = com.bro.assistant.memory.PreferencesStore(c)
+            p.providerKey("colab").isNotBlank() || (p.codeLocalFirst && LocalLlm.ggufReady(c))
+        } catch (e: Exception) { false }
 
     private val signatureRx = Regex("^\\s*(?:import |from |class |def |fun |function |export |const |public |private |interface |data class |object )")
 
