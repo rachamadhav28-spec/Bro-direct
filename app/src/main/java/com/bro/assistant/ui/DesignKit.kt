@@ -139,40 +139,58 @@ fun RoundAction(icon: RoundIcon, fill: Color, label: String, onClick: () -> Unit
     }
 }
 
-/** The BRO logo, "Signal hex": a hexagon badge, a bold B and two sound arcs that ripple. */
+/** The BRO logo, "Nova": a four-point star that breathes, with a small moon circling it on a thin ring. */
 @Composable
 fun BroLogo(size: androidx.compose.ui.unit.Dp, animate: Boolean = true) {
     val t = androidx.compose.animation.core.rememberInfiniteTransition(label = "logo")
-    val a1 by t.animateFloat(0.25f, 1f, infiniteRepeatable(tween(1000), androidx.compose.animation.core.RepeatMode.Reverse), label = "a1")
-    val a2 by t.animateFloat(
-        0.25f, 1f,
-        infiniteRepeatable(tween(1000), androidx.compose.animation.core.RepeatMode.Reverse, initialStartOffset = androidx.compose.animation.core.StartOffset(350)),
-        label = "a2"
+    val spin by t.animateFloat(
+        0f, 360f,
+        infiniteRepeatable(tween(6000, easing = androidx.compose.animation.core.LinearEasing)),
+        label = "spin"
     )
-    val teal = Color(0xFF55D6C6)
-    val violet = Color(0xFF9B8CFF)
-    val ink = BroColors.TextPrimary
+    val breathe by t.animateFloat(
+        1f, 1.12f,
+        infiniteRepeatable(tween(1500), androidx.compose.animation.core.RepeatMode.Reverse),
+        label = "breathe"
+    )
+    val twinkle by t.animateFloat(
+        0.3f, 1f,
+        infiniteRepeatable(tween(1100), androidx.compose.animation.core.RepeatMode.Reverse),
+        label = "twinkle"
+    )
+    val violet = Color(0xFFA78BFA)
+    val lilac = Color(0xFFD8CCFF)
     Canvas(Modifier.size(size)) {
         val k = this.size.width / 108f
-        val round = Stroke(width = 6f * k, cap = StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round)
-        val hex = androidx.compose.ui.graphics.Path().apply {
-            moveTo(54f * k, 24f * k); lineTo(80f * k, 39f * k); lineTo(80f * k, 69f * k)
-            lineTo(54f * k, 84f * k); lineTo(28f * k, 69f * k); lineTo(28f * k, 39f * k); close()
+        val c = Offset(54f * k, 54f * k)
+        // orbit ring
+        drawCircle(violet.copy(alpha = 0.35f), radius = 25f * k, center = c, style = Stroke(width = 1.2f * k))
+        // moon
+        androidx.compose.ui.graphics.drawscope.rotate(if (animate) spin else 0f, c) {
+            drawCircle(lilac, radius = 2.6f * k, center = Offset(54f * k, 29f * k))
         }
-        drawPath(hex, Brush.linearGradient(listOf(teal, violet), start = Offset(28f * k, 24f * k), end = Offset(80f * k, 84f * k)), style = round)
-        val b = androidx.compose.ui.graphics.Path().apply {
-            moveTo(38f * k, 38f * k); lineTo(47f * k, 38f * k)
-            cubicTo(57f * k, 38f * k, 57f * k, 54f * k, 47f * k, 54f * k)
-            lineTo(49f * k, 54f * k)
-            cubicTo(61f * k, 54f * k, 61f * k, 70f * k, 49f * k, 70f * k)
-            lineTo(38f * k, 70f * k); close()
+        // star
+        val star = androidx.compose.ui.graphics.Path().apply {
+            moveTo(54f * k, 31.96f * k)
+            cubicTo(55.16f * k, 45.88f * k, 62.12f * k, 52.84f * k, 76.04f * k, 54f * k)
+            cubicTo(62.12f * k, 55.16f * k, 55.16f * k, 62.12f * k, 54f * k, 76.04f * k)
+            cubicTo(52.84f * k, 62.12f * k, 45.88f * k, 55.16f * k, 31.96f * k, 54f * k)
+            cubicTo(45.88f * k, 52.84f * k, 52.84f * k, 45.88f * k, 54f * k, 31.96f * k)
+            close()
         }
-        drawPath(b, ink, style = round)
-        val arc = Stroke(width = 4.5f * k, cap = StrokeCap.Round)
-        val one = androidx.compose.ui.graphics.Path().apply { moveTo(64f * k, 47f * k); quadraticBezierTo(70f * k, 54f * k, 64f * k, 61f * k) }
-        val two = androidx.compose.ui.graphics.Path().apply { moveTo(68f * k, 42f * k); quadraticBezierTo(77f * k, 54f * k, 68f * k, 66f * k) }
-        drawPath(one, teal.copy(alpha = if (animate) a1 else 1f), style = arc)
-        drawPath(two, violet.copy(alpha = if (animate) a2 else 1f), style = arc)
+        androidx.compose.ui.graphics.drawscope.scale(if (animate) breathe else 1f, c) {
+            drawPath(star, Brush.linearGradient(listOf(Color.White, Color(0xFFB9A4FF)), start = Offset(36f * k, 36f * k), end = Offset(72f * k, 72f * k)))
+        }
+        // twinkle
+        val tw = androidx.compose.ui.graphics.Path().apply {
+            moveTo(72f * k, 33f * k)
+            cubicTo(72.4f * k, 35.4f * k, 73.2f * k, 36.2f * k, 75.6f * k, 36.6f * k)
+            cubicTo(73.2f * k, 37f * k, 72.4f * k, 37.8f * k, 72f * k, 40.2f * k)
+            cubicTo(71.6f * k, 37.8f * k, 70.8f * k, 37f * k, 68.4f * k, 36.6f * k)
+            cubicTo(70.8f * k, 36.2f * k, 71.6f * k, 35.4f * k, 72f * k, 33f * k)
+            close()
+        }
+        drawPath(tw, Color(0xFFE9E2FF).copy(alpha = if (animate) twinkle else 1f))
     }
 }
 
