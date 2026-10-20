@@ -17,13 +17,13 @@ object BroColors {
     private val dark: Boolean get() = ThemeState.dark
     private fun pick(d: Long, l: Long) = Color(if (dark) d else l)
 
-    val Background: Color get() = pick(0xFF000000, 0xFFFAF9F5)
-    val Panel: Color get() = pick(0xFF151517, 0xFFFFFFFF)
+    val Background: Color get() = pick(0xFF120B2A, 0xFFFAF9F5)
+    val Panel: Color get() = pick(0xFF1B1238, 0xFFFFFFFF)
     /** The colour of buttons, links and highlights. Darkened on the light theme so text in it stays readable. */
     val Accent: Color get() = if (dark) ThemeState.primary else ThemeState.readableOnLight(ThemeState.primary)
     val AccentSoft: Color get() = Accent.copy(alpha = if (dark) 0.16f else 0.12f)
-    val UserBubble: Color get() = pick(0xFF26262B, 0xFFEFECE3)
-    val BroBubble: Color get() = pick(0xFF0E0E10, 0xFFFAF9F5)
+    val UserBubble: Color get() = pick(0xFF2A1B57, 0xFFEFECE3)
+    val BroBubble: Color get() = pick(0xFF160E30, 0xFFFAF9F5)
     val Listening = Color(0xFF3DDC84)
     val Thinking: Color get() = pick(0xFFB388FF, 0xFF7C4DFF)
     val Executing: Color get() = pick(0xFFFFA726, 0xFFE65100)
@@ -31,10 +31,10 @@ object BroColors {
     val Error: Color get() = pick(0xFFEF5350, 0xFFC62828)
 
     // Text passes 4.5:1 contrast on its background in both themes
-    val TextPrimary: Color get() = pick(0xFFF2F5FA, 0xFF1F1E1D)
-    val TextSecondary: Color get() = pick(0xFF9AA7BD, 0xFF65635C)
-    val Outline: Color get() = pick(0xFF2A2A2D, 0xFFE3E0D6)
-    val Surface2: Color get() = pick(0xFF0C0C0E, 0xFFF3F1EA)
+    val TextPrimary: Color get() = pick(0xFFEEEAFF, 0xFF1F1E1D)
+    val TextSecondary: Color get() = pick(0xFF9C94C4, 0xFF65635C)
+    val Outline: Color get() = pick(0xFF352866, 0xFFE3E0D6)
+    val Surface2: Color get() = pick(0xFF160E30, 0xFFF3F1EA)
     /** Code blocks are dark in both themes (like a terminal). */
     val CodeBg = Color(0xFF0F1115)
     val CodeText = Color(0xFFE6EDF3)

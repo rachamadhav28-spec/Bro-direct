@@ -9,8 +9,8 @@ import com.bro.assistant.memory.PreferencesStore
 
 /** The colours and motion the owner picked. Compose reads these, so changing them updates every screen at once. */
 object ThemeState {
-    var primary by mutableStateOf(Color(0xFF55D6C6))
-    var secondary by mutableStateOf(Color(0xFF9B8CFF))
+    var primary by mutableStateOf(Color(0xFFA78BFA))
+    var secondary by mutableStateOf(Color(0xFFD8CCFF))
     var hud by mutableStateOf(false)
     /** "system" follows the phone, or "light" / "dark" (black). */
     var mode by mutableStateOf("system")
@@ -42,6 +42,7 @@ object ThemeState {
 
     class Preset(val name: String, val a: Long, val b: Long)
     val presets = listOf(
+        Preset("Nova", 0xFFA78BFA, 0xFFD8CCFF),
         Preset("Signal", 0xFF55D6C6, 0xFF9B8CFF),
         Preset("Clay", 0xFFD97757, 0xFFE0A458),
         Preset("Ocean", 0xFF4C8DFF, 0xFF7CC4FF),
