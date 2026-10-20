@@ -12,25 +12,28 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.ui.graphics.Color
-import com.bro.assistant.BuildConfig
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import com.bro.assistant.BroState
+import com.bro.assistant.BuildConfig
 import com.bro.assistant.ui.theme.BroColors
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.sqrt
 
-/** The animated BRO orb. Colour and motion change with the assistant state. */
+/**
+ * The animated BRO orb: a globe made of dots that turns and breathes.
+ * Colour and speed change with the assistant state.
+ */
 @Composable
 fun BroOrb(state: BroState, modifier: Modifier = Modifier) {
-    // Every new build gets its own orb colour and ring count, so you can see an update landed.
+    // Every new build gets its own idle colour, so you can see an update landed.
     val accent = remember { Color.hsv(((BuildConfig.BUILD_NUMBER * 47) % 360).toFloat(), 0.85f, 1f) }
-    val rings = 2 + BuildConfig.BUILD_NUMBER % 3
     val targetColor = when (state) {
-        BroState.IDLE -> accent.copy(alpha = 0.7f)
+        BroState.IDLE -> accent.copy(alpha = 0.85f)
         BroState.LISTENING -> BroColors.Listening
         BroState.THINKING -> BroColors.Thinking
         BroState.EXECUTING -> BroColors.Executing
@@ -66,41 +69,53 @@ fun BroOrb(state: BroState, modifier: Modifier = Modifier) {
     val spin by transition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
-        animationSpec = infiniteRepeatable(tween(duration * 2, easing = LinearEasing), RepeatMode.Restart)
+        animationSpec = infiniteRepeatable(tween(duration * 6, easing = LinearEasing), RepeatMode.Restart)
     )
+
+    // Evenly spread points on a sphere (Fibonacci spiral).
+    val points = remember {
+        val n = 150
+        List(n) { i ->
+            val y = 1f - i / (n - 1f) * 2f
+            val ring = sqrt(1f - y * y)
+            val angle = i * 2.399963f
+            floatArrayOf(cos(angle) * ring, y, sin(angle) * ring)
+        }
+    }
 
     Canvas(modifier) {
         val c = center
-        val r = size.minDimension / 2f
-        val coreRadius = r * (0.45f + amplitude * pulse)
+        val unit = size.minDimension
+        val r = unit / 2f * 0.78f
+        val rot = Math.toRadians(spin.toDouble()).toFloat()
+        val cs = cos(rot)
+        val sn = sin(rot)
 
+        // soft glow behind the globe
         drawCircle(
             brush = Brush.radialGradient(
-                colors = listOf(color.copy(alpha = 0.95f), color.copy(alpha = 0.10f)),
+                colors = listOf(color.copy(alpha = 0.22f), Color.Transparent),
                 center = c,
-                radius = coreRadius * 1.6f
+                radius = r * 1.3f
             ),
-            radius = coreRadius * 1.6f,
+            radius = r * 1.3f,
             center = c
         )
-        for (i in 1..rings) {
+
+        // turn the globe, let each dot breathe a little, draw far dots first
+        val placed = points.mapIndexed { i, p ->
+            val x = p[0] * cs + p[2] * sn
+            val z = -p[0] * sn + p[2] * cs
+            val k = 1f + amplitude * 0.9f * sin(pulse * 6.2832f + i * 0.5f)
+            floatArrayOf(x * k, p[1] * k, z * k)
+        }.sortedBy { it[2] }
+
+        for (q in placed) {
+            val depth = ((q[2] + 1f) / 2f).coerceIn(0f, 1f)
             drawCircle(
-                color = color.copy(alpha = 0.40f / i),
-                radius = r * (0.55f + 0.14f * i) + r * amplitude * pulse * i,
-                center = c,
-                style = Stroke(width = 3f)
-            )
-        }
-        if (state == BroState.THINKING || state == BroState.EXECUTING) {
-            val arcRadius = r * 0.82f
-            drawArc(
-                color = color,
-                startAngle = spin,
-                sweepAngle = 110f,
-                useCenter = false,
-                topLeft = Offset(c.x - arcRadius, c.y - arcRadius),
-                size = Size(arcRadius * 2, arcRadius * 2),
-                style = Stroke(width = 8f, cap = StrokeCap.Round)
+                color = lerp(color, Color.White, depth * 0.35f).copy(alpha = 0.25f + 0.75f * depth),
+                radius = unit * (0.006f + 0.011f * depth),
+                center = Offset(c.x + q[0] * r, c.y + q[1] * r)
             )
         }
     }
