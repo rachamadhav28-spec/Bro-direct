@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Put in res/drawable/ic_launcher_background.xml -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
@@ -12,8 +11,8 @@
                 android:startX="0" android:startY="0"
                 android:endX="108" android:endY="108"
                 android:type="linear">
-                <item android:color="#FF2A1B57" android:offset="0" />
-                <item android:color="#FF120B2A" android:offset="1" />
+                <item android:color="#FF111A2E" android:offset="0" />
+                <item android:color="#FF070A12" android:offset="1" />
             </gradient>
         </aapt:attr>
     </path>
