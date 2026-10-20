@@ -59,6 +59,26 @@ fun SettingsScreen(
     onLockSetup: (String) -> Unit = {},
     onMailSetup: () -> Unit = {}
 ) {
+    var lab by remember { mutableStateOf(false) }
+    if (lab) {
+        androidx.activity.compose.BackHandler { lab = false }
+        MotionLabScreen(onBack = { lab = false })
+    } else {
+        SettingsContent(vm, tick, onBack, onRequest, onWakeToggle, onLockSetup, onMailSetup, onOpenLab = { lab = true })
+    }
+}
+
+@Composable
+private fun SettingsContent(
+    vm: ChatViewModel,
+    tick: Int,
+    onBack: () -> Unit,
+    onRequest: (String) -> Unit,
+    onWakeToggle: (Boolean) -> Unit,
+    onLockSetup: (String) -> Unit = {},
+    onMailSetup: () -> Unit = {},
+    onOpenLab: () -> Unit = {}
+) {
     val ctx = LocalContext.current
     val prefs = vm.prefs
 
@@ -429,6 +449,9 @@ fun SettingsScreen(
                 }
             }
             Text("Auto follows your phone. Dark is true black, easy on the eyes and the battery.", color = BroColors.TextSecondary, fontSize = 12.sp)
+            Spacer(Modifier.height(8.dp))
+            Text("Motion lab", color = BroColors.TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            OutlinedButton(onClick = onOpenLab) { Text("See all ${com.bro.assistant.ui.Motion.all.size} animations") }
             Spacer(Modifier.height(8.dp))
             var hudOn by remember { mutableStateOf(com.bro.assistant.ui.theme.ThemeState.hud) }
             SwitchRow("Sci-fi HUD background (dark theme only)", hudOn) { on ->
