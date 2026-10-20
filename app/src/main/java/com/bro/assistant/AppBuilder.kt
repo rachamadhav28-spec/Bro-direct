@@ -232,7 +232,7 @@ class AppBuilder(private val prefs: PreferencesStore, private val gh: GitHubClie
         if (names.isEmpty()) return "I only know how to fix apps that BRO created."
         val engine = if (mode == "offline") "offline" else if (mode == "team" && !cloudReady()) "offline" else "cloud"
         val orig = LinkedHashMap<String, String>()
-        for (n in names) orig[AppTemplate.SOURCE_DIR + n] = gh.readFile(repo, AppTemplate.SOURCE_DIR + n)
+        for (n in names) orig[AppTemplate.SOURCE_DIR + n] = cleanDamaged(gh.readFile(repo, AppTemplate.SOURCE_DIR + n))
         // Fix only the files the compiler complained about, one at a time: a short plain-code answer each,
         // instead of one huge JSON with every file (that is what broke big apps).
         val errorLines = errors.lines()
@@ -258,9 +258,16 @@ class AppBuilder(private val prefs: PreferencesStore, private val gh: GitHubClie
             }
             val fenced = Regex("```[A-Za-z]*\\n([\\s\\S]*?)```").find(reply)?.groupValues?.get(1) ?: reply.trim().removePrefix("```kotlin").removeSuffix("```")
             val code = fenced.trim()
-            // never push a half answer: it must be a whole Kotlin file of about the same size
-            if (!code.contains("package com.bro.app") || code.length < old.length * 0.6) {
-                whyNot += if (!code.contains("package com.bro.app")) "$n: the AI did not return a whole Kotlin file"
+            // a small model sometimes answers with its own tool-call text (<|tool_call_start|>...) instead of code
+            if (code.contains("<|") || code.contains("tool_call")) {
+                whyNot += "$n: the AI answered with tool-call text instead of code"; continue
+            }
+            // never push a half answer: it must start with the package line, be balanced and be about the same size
+            val startsOk = code.lineSequence().firstOrNull { it.isNotBlank() }?.trim()?.startsWith("package com.bro.app") == true
+            val balanced = code.count { it == '{' } == code.count { it == '}' }
+            if (!startsOk || !balanced || code.length < old.length * 0.6) {
+                whyNot += if (!startsOk) "$n: the AI did not return a whole Kotlin file"
+                    else if (!balanced) "$n: the AI's file has unmatched braces, so it was cut short or broken"
                     else "$n: the AI's file was cut short (${code.length} of about ${old.length} characters)"
                 continue
             }
@@ -291,6 +298,15 @@ class AppBuilder(private val prefs: PreferencesStore, private val gh: GitHubClie
     }
 
     // ---------- helpers ----------
+
+    /** A file an earlier bad repair damaged: drop the model's tool-call text and restore the package line. */
+    private fun cleanDamaged(text: String): String {
+        val i = text.indexOf("<|")
+        if (i < 0) return text
+        val head = text.substring(0, i).trimEnd()
+        return if (head.lineSequence().any { it.trim().startsWith("package ") }) head + "\n"
+        else "package com.bro.app\n\n" + head + "\n"
+    }
 
     private fun parseJson(raw: String): JSONObject {
         val t = raw.trim().removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
