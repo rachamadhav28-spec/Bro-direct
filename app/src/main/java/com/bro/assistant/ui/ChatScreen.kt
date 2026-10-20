@@ -201,10 +201,10 @@ fun ChatScreen(
                     Text("What can I do for you? Ask anything, or tell me what to do on your phone. English, Telugu or Tenglish.", color = BroColors.TextSecondary, fontSize = 15.sp, textAlign = TextAlign.Center)
                     Spacer(Modifier.height(28.dp))
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        StarterCard("Write code", "A program or a whole app, saved as files") { vm.send("write a python program for a calculator") }
-                        StarterCard("Build an app", "BRO makes it on GitHub and keeps fixing until it builds") { vm.send("create an app: a simple calculator") }
-                        StarterCard("Quiz me", "Practice a subject; I remember your weak points") { vm.send("quiz me on DBMS") }
-                        StarterCard("Do it on my phone", "Say what you want done in any app") { vm.send("open settings and turn on dark mode") }
+                        Box(Modifier.fx(Motion.cardFx, delayMs = 0)) { StarterCard("Write code", "A program or a whole app, saved as files") { vm.send("write a python program for a calculator") } }
+                        Box(Modifier.fx(Motion.cardFx, delayMs = 110)) { StarterCard("Build an app", "BRO makes it on GitHub and keeps fixing until it builds") { vm.send("create an app: a simple calculator") } }
+                        Box(Modifier.fx(Motion.cardFx, delayMs = 220)) { StarterCard("Quiz me", "Practice a subject; I remember your weak points") { vm.send("quiz me on DBMS") } }
+                        Box(Modifier.fx(Motion.cardFx, delayMs = 330)) { StarterCard("Do it on my phone", "Say what you want done in any app") { vm.send("open settings and turn on dark mode") } }
                     }
                     Spacer(Modifier.height(16.dp))
                 }
@@ -216,9 +216,10 @@ fun ChatScreen(
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
                     val lastBroId = vm.messages.lastOrNull { !it.fromUser }?.id
+                    val newest = vm.messages.takeLast(2).map { it.id }.toSet()
                     items(vm.messages, key = { it.id }) { message ->
                         val speakingNow = vm.state == BroState.SPEAKING && message.id == (vm.readingId ?: lastBroId)
-                        Bubble(message, speakingNow, onListen = { vm.readAloud(message) }, onMute = { vm.mute() })
+                        Bubble(message, speakingNow, message.id in newest, onListen = { vm.readAloud(message) }, onMute = { vm.mute() })
                     }
                     if (thinking || com.bro.assistant.Activity.active) item(key = "activity") { ActivityCard(live = true) }
                     else if (com.bro.assistant.Activity.lastItems.isNotEmpty() && vm.messages.lastOrNull()?.fromUser == false) item(key = "activity_done") { ActivityCard(live = false) }
@@ -277,7 +278,7 @@ fun ChatScreen(
                     when {
                         vm.state == BroState.LISTENING -> RoundAction(RoundIcon.STOP, BroColors.Error, "Stop listening", onMic)
                         input.isNotBlank() -> RoundAction(RoundIcon.SEND, BroColors.Accent, "Send message") { submit() }
-                        else -> RoundAction(RoundIcon.MIC, BroColors.Accent, "Talk to BRO", onMic)
+                        else -> Box(Modifier.fx(Motion.sendFx, replay = vm.messages.size)) { RoundAction(RoundIcon.MIC, BroColors.Accent, "Talk to BRO", onMic) }
                     }
                 }
             }
@@ -303,15 +304,13 @@ fun ChatScreen(
 }
 
 @Composable
-private fun Bubble(message: ChatMessage, speakingNow: Boolean, onListen: () -> Unit, onMute: () -> Unit) {
-    val appear = remember { androidx.compose.animation.core.Animatable(0f) }
-    LaunchedEffect(Unit) { appear.animateTo(1f, androidx.compose.animation.core.tween(220)) }
+private fun Bubble(message: ChatMessage, speakingNow: Boolean, animate: Boolean, onListen: () -> Unit, onMute: () -> Unit) {
     val shape = RoundedCornerShape(20.dp, 20.dp, 6.dp, 20.dp)
     val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
     var copied by remember { mutableStateOf(false) }
     LaunchedEffect(copied) { if (copied) { kotlinx.coroutines.delay(1800); copied = false } }
     Column(
-        Modifier.fillMaxWidth().graphicsLayer { alpha = appear.value; translationY = (1f - appear.value) * 12f },
+        (if (animate) Modifier.fillMaxWidth().fx(Motion.messageFx) else Modifier.fillMaxWidth()),
         horizontalAlignment = if (message.fromUser) Alignment.End else Alignment.Start
     ) {
         // you: a soft bubble on the right. BRO: plain text across the full width, like a document.

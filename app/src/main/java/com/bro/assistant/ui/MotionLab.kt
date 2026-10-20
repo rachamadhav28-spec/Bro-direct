@@ -37,10 +37,11 @@ import com.bro.assistant.ui.theme.BroColors
 
 /** Every BRO animation on one screen. Tap a tile to play it again. */
 @Composable
-fun MotionLabScreen(onBack: () -> Unit) {
+fun MotionLabScreen(onBack: () -> Unit, prefs: com.bro.assistant.memory.PreferencesStore) {
     var kind by remember { mutableStateOf(MotionKind.ENTRANCE) }
     var playAll by remember { mutableIntStateOf(0) }
     val list = remember(kind) { Motion.of(kind) }
+    var selected by remember { mutableStateOf<Fx?>(null) }
 
     Column(Modifier.fillMaxSize().background(BroColors.Background).systemBarsPadding()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -62,8 +63,31 @@ fun MotionLabScreen(onBack: () -> Unit) {
                 else OutlinedButton(onClick = pick, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp)) { Text(label, fontSize = 12.sp, maxLines = 1) }
             }
         }
-        if (kind != MotionKind.LOOP) {
-            OutlinedButton(onClick = { playAll++ }, modifier = Modifier.padding(horizontal = 16.dp)) { Text("Play all again") }
+        Text(
+            "In use: messages ${Motion.messageFx.name}, cards and lists ${Motion.cardFx.name}, send button ${Motion.sendFx.name}, logo ${Motion.logoFx?.name ?: "none"}",
+            color = BroColors.TextSecondary, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 16.dp)
+        )
+        val pickedFx = selected?.takeIf { it.kind == kind }
+        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (pickedFx == null) {
+                Text("Tap an animation, then choose where BRO should use it.", color = BroColors.TextPrimary, fontSize = 13.sp)
+            } else {
+                Text("Selected: ${pickedFx.name}", color = BroColors.TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    when (kind) {
+                        MotionKind.ENTRANCE -> {
+                            Button(onClick = { Motion.choose("message", pickedFx, prefs) }) { Text("Use for messages", fontSize = 12.sp) }
+                            Button(onClick = { Motion.choose("card", pickedFx, prefs) }) { Text("Use for cards", fontSize = 12.sp) }
+                        }
+                        MotionKind.EMPHASIS -> Button(onClick = { Motion.choose("send", pickedFx, prefs) }) { Text("Use for the send button", fontSize = 12.sp) }
+                        MotionKind.LOOP -> {
+                            Button(onClick = { Motion.choose("logo", pickedFx, prefs) }) { Text("Use on the logo", fontSize = 12.sp) }
+                            OutlinedButton(onClick = { Motion.choose("logo", null, prefs) }) { Text("No logo loop", fontSize = 12.sp) }
+                        }
+                    }
+                }
+            }
+            if (kind != MotionKind.LOOP) OutlinedButton(onClick = { playAll++ }) { Text("Play all again") }
         }
         LazyVerticalGrid(
             columns = GridCells.Adaptive(104.dp),
@@ -72,18 +96,18 @@ fun MotionLabScreen(onBack: () -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            items(list, key = { it.name }) { fx -> MotionTile(fx, playAll) }
+            items(list, key = { it.name }) { fx -> MotionTile(fx, playAll, selected == fx) { selected = fx } }
         }
     }
 }
 
 @Composable
-private fun MotionTile(fx: Fx, playAll: Int) {
+private fun MotionTile(fx: Fx, playAll: Int, chosen: Boolean, onChoose: () -> Unit) {
     var mine by remember { mutableIntStateOf(0) }
     val shape = RoundedCornerShape(14.dp)
     Column(
-        Modifier.fillMaxWidth().clip(shape).background(BroColors.Panel).border(1.dp, BroColors.Outline, shape)
-            .clickable { mine++ }.padding(horizontal = 8.dp, vertical = 12.dp),
+        Modifier.fillMaxWidth().clip(shape).background(BroColors.Panel).border(if (chosen) 2.dp else 1.dp, if (chosen) BroColors.Accent else BroColors.Outline, shape)
+            .clickable { mine++; onChoose() }.padding(horizontal = 8.dp, vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {

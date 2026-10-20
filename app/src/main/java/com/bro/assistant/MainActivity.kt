@@ -157,6 +157,7 @@ class MainActivity : FragmentActivity() {
         handleWake(intent)
 
         com.bro.assistant.ui.theme.ThemeState.load(com.bro.assistant.memory.PreferencesStore(this))
+        com.bro.assistant.ui.Motion.load(com.bro.assistant.memory.PreferencesStore(this))
         setContent {
             BroTheme {
                 Box(Modifier.fillMaxSize().pinchToZoomApp()) {

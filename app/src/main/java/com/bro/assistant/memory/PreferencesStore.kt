@@ -161,6 +161,9 @@ class PreferencesStore(context: Context) {
     var uiZoom: Float
         get() = sp.getFloat("ui_zoom", 1f)
         set(value) { sp.edit().putFloat("ui_zoom", value).apply() }
+    /** Which animation each slot uses ("message", "card", "send", "logo"); blank means the default / none. */
+    fun fx(slot: String): String = sp.getString("fx_$slot", "") ?: ""
+    fun setFx(slot: String, name: String) { sp.edit().putString("fx_$slot", name).apply() }
     var hudAnimation: Boolean
         get() = sp.getBoolean("hud_animation", false)
         set(value) { sp.edit().putBoolean("hud_animation", value).apply() }

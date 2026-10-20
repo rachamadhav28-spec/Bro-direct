@@ -198,7 +198,8 @@ fun BroLogo(size: androidx.compose.ui.unit.Dp, animate: Boolean = true) {
 fun BroWordmark(size: androidx.compose.ui.unit.TextUnit, spacing: androidx.compose.ui.unit.TextUnit = 4.sp) {
     val mark = with(androidx.compose.ui.platform.LocalDensity.current) { size.toDp() } * 1.5f
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        BroLogo(mark)
+        val lf = Motion.logoFx
+        Box(if (lf != null) Modifier.fx(lf) else Modifier) { BroLogo(mark) }
         BroWordText(size, spacing)
     }
 }

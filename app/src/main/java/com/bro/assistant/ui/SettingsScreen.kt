@@ -62,7 +62,7 @@ fun SettingsScreen(
     var lab by remember { mutableStateOf(false) }
     if (lab) {
         androidx.activity.compose.BackHandler { lab = false }
-        MotionLabScreen(onBack = { lab = false })
+        MotionLabScreen(onBack = { lab = false }, prefs = vm.prefs)
     } else {
         SettingsContent(vm, tick, onBack, onRequest, onWakeToggle, onLockSetup, onMailSetup, onOpenLab = { lab = true })
     }

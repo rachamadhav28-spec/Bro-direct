@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
@@ -76,9 +77,9 @@ fun HistoryScreen(vm: ChatViewModel, onBack: () -> Unit, onOpen: () -> Unit, emb
                         Text(label, color = BroColors.TextSecondary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.padding(start = 8.dp, top = 14.dp, bottom = 4.dp))
                     }
-                    items(list, key = { it.id }) { c ->
+                    itemsIndexed(list, key = { _, c -> c.id }) { i, c ->
                         Row(
-                            Modifier.fillMaxWidth().heightIn(min = 52.dp).clip(RoundedCornerShape(14.dp))
+                            Modifier.fx(Motion.cardFx, delayMs = minOf(i, 8) * 45).fillMaxWidth().heightIn(min = 52.dp).clip(RoundedCornerShape(14.dp))
                                 .clickable(onClickLabel = "Open chat") { vm.openConversation(c.id); onOpen() }
                                 .padding(start = 12.dp, end = 2.dp, top = 6.dp, bottom = 6.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,

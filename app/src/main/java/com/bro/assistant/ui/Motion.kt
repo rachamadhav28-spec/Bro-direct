@@ -5,7 +5,12 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.bro.assistant.memory.PreferencesStore
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import kotlinx.coroutines.isActive
@@ -172,6 +177,31 @@ object Motion {
 
     fun of(kind: MotionKind): List<Fx> = all.filter { it.kind == kind }
     fun named(name: String): Fx = all.first { it.name == name }
+
+    // The animation each part of the app uses. Change them in Settings > Motion lab.
+    var messageFx: Fx by mutableStateOf(named("Fade from Bottom"))   // new chat messages
+    var cardFx: Fx by mutableStateOf(named("Rise Up"))                // starter cards and history rows
+    var sendFx: Fx by mutableStateOf(named("Pulse"))                  // the mic / send button when a message is sent
+    var logoFx: Fx? by mutableStateOf(null)                           // optional loop on the logo
+
+    fun load(prefs: PreferencesStore) {
+        fun pick(slot: String) = all.firstOrNull { it.name == prefs.fx(slot) }
+        pick("message")?.let { messageFx = it }
+        pick("card")?.let { cardFx = it }
+        pick("send")?.let { sendFx = it }
+        logoFx = pick("logo")
+    }
+
+    /** Sets the animation for [slot] ("message", "card", "send" or "logo") and remembers it. */
+    fun choose(slot: String, fx: Fx?, prefs: PreferencesStore) {
+        when (slot) {
+            "message" -> if (fx != null) messageFx = fx
+            "card" -> if (fx != null) cardFx = fx
+            "send" -> if (fx != null) sendFx = fx
+            "logo" -> logoFx = fx
+        }
+        prefs.setFx(slot, fx?.name ?: "")
+    }
 }
 
 /**
@@ -179,13 +209,15 @@ object Motion {
  * Change [replay] to play it again.
  */
 @Composable
-fun Modifier.fx(fx: Fx, replay: Int = 0): Modifier {
+fun Modifier.fx(fx: Fx, replay: Int = 0, delayMs: Int = 0): Modifier {
     val p = remember(fx) { Animatable(0f) }
     LaunchedEffect(fx, replay) {
+        p.snapTo(0f)
+        if (delayMs > 0) delay(delayMs.toLong())
         if (fx.kind == MotionKind.LOOP) {
             while (isActive) { p.snapTo(0f); p.animateTo(1f, tween(fx.ms, easing = LinearEasing)) }
         } else {
-            p.snapTo(0f); p.animateTo(1f, tween(fx.ms, easing = LinearEasing))
+            p.animateTo(1f, tween(fx.ms, easing = LinearEasing))
         }
     }
     return this.graphicsLayer {
