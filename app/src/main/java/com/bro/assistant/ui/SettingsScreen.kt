@@ -494,7 +494,7 @@ fun SettingsScreen(
                 else { com.bro.assistant.ui.theme.ThemeState.set(prefs, a, b); hexMsg = "Applied." }
             }) { Text("Apply my colours") }
             if (hexMsg.isNotEmpty()) Text(hexMsg, color = BroColors.TextSecondary, fontSize = 12.sp)
-            OutlinedButton(onClick = { com.bro.assistant.ui.theme.ThemeState.set(prefs, Color(0xFFD97757), Color(0xFFE0A458)) }) { Text("Back to Clay") }
+            OutlinedButton(onClick = { com.bro.assistant.ui.theme.ThemeState.set(prefs, Color(0xFF55D6C6), Color(0xFF9B8CFF)) }) { Text("Back to Signal") }
         }
         SectionHeader("BRO learns", openSection == "BRO learns") { openSection = if (openSection == "BRO learns") "" else "BRO learns" }
         if (openSection == "BRO learns") {

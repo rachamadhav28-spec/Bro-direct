@@ -140,10 +140,10 @@ class PreferencesStore(context: Context) {
         set(value) { sp.edit().putBoolean("learn_nightly", value).apply() }
     /** Theme colours (ARGB as unsigned long) and the moving HUD background. */
     var accentPrimary: Long
-        get() = sp.getLong("accent_primary", 0xFFD97757L)
+        get() = sp.getLong("accent_primary", 0xFF55D6C6L)
         set(value) { sp.edit().putLong("accent_primary", value).apply() }
     var accentSecondary: Long
-        get() = sp.getLong("accent_secondary", 0xFFE0A458L)
+        get() = sp.getLong("accent_secondary", 0xFF9B8CFFL)
         set(value) { sp.edit().putLong("accent_secondary", value).apply() }
     /** "auto" (wide screens get the desktop layout), "phone" or "desktop". */
     var layoutMode: String

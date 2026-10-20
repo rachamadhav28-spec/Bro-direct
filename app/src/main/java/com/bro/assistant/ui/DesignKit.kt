@@ -139,9 +139,55 @@ fun RoundAction(icon: RoundIcon, fill: Color, label: String, onClick: () -> Unit
     }
 }
 
-/** The BRO name. Plain and confident; the neon gradient and glow only appear with the HUD animation on. */
+/** The BRO logo, "Signal hex": a hexagon badge, a bold B and two sound arcs that ripple. */
+@Composable
+fun BroLogo(size: androidx.compose.ui.unit.Dp, animate: Boolean = true) {
+    val t = androidx.compose.animation.core.rememberInfiniteTransition(label = "logo")
+    val a1 by t.animateFloat(0.25f, 1f, infiniteRepeatable(tween(1000), androidx.compose.animation.core.RepeatMode.Reverse), label = "a1")
+    val a2 by t.animateFloat(
+        0.25f, 1f,
+        infiniteRepeatable(tween(1000), androidx.compose.animation.core.RepeatMode.Reverse, initialStartOffset = androidx.compose.animation.core.StartOffset(350)),
+        label = "a2"
+    )
+    val teal = Color(0xFF55D6C6)
+    val violet = Color(0xFF9B8CFF)
+    val ink = BroColors.TextPrimary
+    Canvas(Modifier.size(size)) {
+        val k = this.size.width / 108f
+        val round = Stroke(width = 6f * k, cap = StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round)
+        val hex = androidx.compose.ui.graphics.Path().apply {
+            moveTo(54f * k, 24f * k); lineTo(80f * k, 39f * k); lineTo(80f * k, 69f * k)
+            lineTo(54f * k, 84f * k); lineTo(28f * k, 69f * k); lineTo(28f * k, 39f * k); close()
+        }
+        drawPath(hex, Brush.linearGradient(listOf(teal, violet), start = Offset(28f * k, 24f * k), end = Offset(80f * k, 84f * k)), style = round)
+        val b = androidx.compose.ui.graphics.Path().apply {
+            moveTo(38f * k, 38f * k); lineTo(47f * k, 38f * k)
+            cubicTo(57f * k, 38f * k, 57f * k, 54f * k, 47f * k, 54f * k)
+            lineTo(49f * k, 54f * k)
+            cubicTo(61f * k, 54f * k, 61f * k, 70f * k, 49f * k, 70f * k)
+            lineTo(38f * k, 70f * k); close()
+        }
+        drawPath(b, ink, style = round)
+        val arc = Stroke(width = 4.5f * k, cap = StrokeCap.Round)
+        val one = androidx.compose.ui.graphics.Path().apply { moveTo(64f * k, 47f * k); quadraticBezierTo(70f * k, 54f * k, 64f * k, 61f * k) }
+        val two = androidx.compose.ui.graphics.Path().apply { moveTo(68f * k, 42f * k); quadraticBezierTo(77f * k, 54f * k, 68f * k, 66f * k) }
+        drawPath(one, teal.copy(alpha = if (animate) a1 else 1f), style = arc)
+        drawPath(two, violet.copy(alpha = if (animate) a2 else 1f), style = arc)
+    }
+}
+
+/** The BRO name with the logo in front of it. The neon gradient and glow on the letters only appear with the HUD animation on. */
 @Composable
 fun BroWordmark(size: androidx.compose.ui.unit.TextUnit, spacing: androidx.compose.ui.unit.TextUnit = 4.sp) {
+    val mark = with(androidx.compose.ui.platform.LocalDensity.current) { size.toDp() } * 1.5f
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        BroLogo(mark)
+        BroWordText(size, spacing)
+    }
+}
+
+@Composable
+private fun BroWordText(size: androidx.compose.ui.unit.TextUnit, spacing: androidx.compose.ui.unit.TextUnit = 4.sp) {
     if (!com.bro.assistant.ui.theme.ThemeState.hud || !com.bro.assistant.ui.theme.ThemeState.dark) {
         Text("BRO", fontSize = size, fontWeight = FontWeight.Bold, letterSpacing = spacing, color = BroColors.TextPrimary)
         return
