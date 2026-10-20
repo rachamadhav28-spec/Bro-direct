@@ -248,7 +248,15 @@ class AppBuilder(private val prefs: PreferencesStore, private val gh: GitHubClie
                 k.substringAfterLast('/') + ": " + declRx.findAll(v).map { it.value.trim() }.take(14).joinToString("; ")
             }.take(1800)
             com.bro.assistant.Activity.step("Fixing $n")
-            val ask = "Compile errors:\n$mine\n\nOther files in the project (never declare these names again here):\n$others\n\nFile $n:\n$old"
+            // a file an earlier repair emptied (only imports left): show how the other files use its name so it can be rebuilt
+            val gutted = !Regex("(?m)^\\s*(?:(?:sealed|data|enum|abstract|open|private|internal)\\s+)*(?:class|object|interface|fun)\\s").containsMatchIn(old)
+            val stem = n.removeSuffix(".kt")
+            val usage = if (!gutted) "" else orig.filterKeys { it != path }.values.flatMap { it.lines() }
+                .filter { Regex("\\b$stem\\b").containsMatchIn(it) && !it.trimStart().startsWith("import") }
+                .map { it.trim() }.distinct().take(14).joinToString("\n")
+            val rebuild = if (!gutted) "" else "\n\nThis file was emptied by a bad repair. Rebuild it from scratch so the other files compile. " +
+                "It must declare '$stem'. This is how the other files use it:\n$usage\n"
+            val ask = "Compile errors:\n$mine\n\nOther files in the project (never declare these names again here):\n$others$rebuild\n\nFile $n:\n$old"
             var reply: String? = null
             try {
                 reply = gemini.generate(FIX_FILE_PROMPT, ask, json = false, timeoutMs = 150000, skill = Skill.CODE, engine = engine)
