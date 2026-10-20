@@ -2,9 +2,13 @@ package com.bro.assistant.ai
 
 import com.bro.assistant.AiException
 import com.bro.assistant.memory.PreferencesStore
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -16,6 +20,24 @@ import java.net.URL
  * a backend server instead of the phone.
  */
 class GeminiClient(private val prefs: PreferencesStore) {
+
+    /**
+     * The offline model runs in native code that cannot be interrupted, so it runs on its own job and BRO stops
+     * waiting after [LOCAL_LIMIT_MS]. The caller then moves on (to the cloud AIs when there are keys) instead of
+     * sitting for 17 minutes.
+     */
+    private suspend fun localWithin(system: String, user: String, json: Boolean): String {
+        val job = CoroutineScope(SupervisorJob() + Dispatchers.IO).async { LocalLlm.generate(prefs, system, user, json) }
+        try {
+            val out = withTimeoutOrNull(LOCAL_LIMIT_MS) { job.await() }
+            if (out != null) return out
+            job.cancel()
+            throw IllegalStateException("The offline model took longer than ${LOCAL_LIMIT_MS / 60000} minutes, so I stopped it. " +
+                "Phones are slow at this; add an API key in Settings and I will use the cloud instead.")
+        } finally {
+            if (job.isActive) job.cancel()
+        }
+    }
 
     /**
      * Picks the brain. Coding jobs (skill = CODE) go to the best free AI for that job; everything else
@@ -32,14 +54,14 @@ class GeminiClient(private val prefs: PreferencesStore) {
     ): String {
         if (engine == "offline") {
             if (!LocalLlm.isInstalled(prefs.appContext)) throw IllegalStateException("The offline brain isn't installed. Add it in Settings first.")
-            return LocalLlm.generate(prefs, system, user, json)
+            return localWithin(system, user, json)
         }
-        if (engine != "cloud" && LocalLlm.willUse(prefs)) return LocalLlm.generate(prefs, system, user, json)
+        if (engine != "cloud" && LocalLlm.willUse(prefs)) return localWithin(system, user, json)
         // coding: the offline Qwen (.gguf) first when the owner installed one; if it fails, the cloud AIs below take over
         if (engine == "auto" && skill == Skill.CODE && prefs.codeLocalFirst && LocalLlm.ggufReady(prefs.appContext)) {
             try {
                 com.bro.assistant.Activity.step("Asking the offline code model")
-                return LocalLlm.generate(prefs, system, user, json)
+                return localWithin(system, user, json)
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -79,7 +101,7 @@ class GeminiClient(private val prefs: PreferencesStore) {
                 if (failure == null) failure = e
             }
         }
-        if (engine != "cloud" && LocalLlm.isInstalled(prefs.appContext)) return LocalLlm.generate(prefs, system, user, json)
+        if (engine != "cloud" && LocalLlm.isInstalled(prefs.appContext)) return localWithin(system, user, json)
         throw failure ?: AiException(401, "no AI key is set")
     }
 
@@ -348,4 +370,6 @@ class GeminiClient(private val prefs: PreferencesStore) {
             JSONObject(text).getJSONArray("candidates").getJSONObject(0).getJSONObject("content").getJSONArray("parts").getJSONObject(0).getString("text")
         } finally { conn.disconnect() }
     }
+
+    private companion object { const val LOCAL_LIMIT_MS = 240_000L }
 }

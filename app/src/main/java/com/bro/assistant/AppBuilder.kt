@@ -248,14 +248,22 @@ class AppBuilder(private val prefs: PreferencesStore, private val gh: GitHubClie
                 k.substringAfterLast('/') + ": " + declRx.findAll(v).map { it.value.trim() }.take(14).joinToString("; ")
             }.take(1800)
             com.bro.assistant.Activity.step("Fixing $n")
-            val reply = try {
-                gemini.generate(
-                    FIX_FILE_PROMPT, "Compile errors:\n$mine\n\nOther files in the project (never declare these names again here):\n$others\n\nFile $n:\n$old",
-                    json = false, timeoutMs = 150000, skill = Skill.CODE, engine = engine
-                )
+            val ask = "Compile errors:\n$mine\n\nOther files in the project (never declare these names again here):\n$others\n\nFile $n:\n$old"
+            var reply: String? = null
+            try {
+                reply = gemini.generate(FIX_FILE_PROMPT, ask, json = false, timeoutMs = 150000, skill = Skill.CODE, engine = engine)
             } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) {
-                whyNot += "$n: the AI failed (${e.message ?: e.javaClass.simpleName})"; continue
+                // the offline model was too slow or failed: use the cloud AIs when keys exist
+                if (engine == "offline" && cloudReady()) {
+                    com.bro.assistant.Activity.step("Offline was too slow, asking the cloud AI")
+                    try {
+                        reply = gemini.generate(FIX_FILE_PROMPT, ask, json = false, timeoutMs = 150000, skill = Skill.CODE, engine = "cloud")
+                    } catch (e2: kotlinx.coroutines.CancellationException) { throw e2 } catch (e2: Exception) {
+                        whyNot += "$n: the AI failed (${e2.message ?: e2.javaClass.simpleName})"
+                    }
+                } else whyNot += "$n: the AI failed (${e.message ?: e.javaClass.simpleName})"
             }
+            if (reply == null) continue
             val fenced = Regex("```[A-Za-z]*\\n([\\s\\S]*?)```").find(reply)?.groupValues?.get(1) ?: reply.trim().removePrefix("```kotlin").removeSuffix("```")
             val code = fenced.trim()
             // a small model sometimes answers with its own tool-call text (<|tool_call_start|>...) instead of code
