@@ -226,20 +226,20 @@ fun ChatScreen(
             }
         }
 
-        // ── Composer: one rounded card; the button is Mic when empty, Send when typing, Stop while listening ──
+        // ── Composer: a rounded card. Text on top; underneath, BRO's status on the left and one button on the right
+        //    (Mic when empty, Send when typing, Stop while listening) ──
         Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
-            Row(
+            val shape = RoundedCornerShape(24.dp)
+            Column(
                 Modifier.widthIn(max = 760.dp).fillMaxWidth()
-                    .clip(RoundedCornerShape(28.dp)).background(BroColors.Panel)
-                    .border(1.dp, BroColors.Outline, RoundedCornerShape(28.dp))
-                    .padding(start = 6.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
-                verticalAlignment = Alignment.Bottom,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    .clip(shape).background(BroColors.Panel)
+                    .border(1.dp, BroColors.Outline, shape)
+                    .padding(start = 8.dp, end = 8.dp, top = 6.dp, bottom = 8.dp)
             ) {
                 TextField(
                     value = input,
                     onValueChange = { input = it },
-                    modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
                     placeholder = { Text("Message BRO", color = BroColors.TextSecondary) },
                     maxLines = 6,
                     colors = TextFieldDefaults.colors(
@@ -254,10 +254,21 @@ fun ChatScreen(
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                     keyboardActions = KeyboardActions(onSend = { submit() })
                 )
-                when {
-                    vm.state == BroState.LISTENING -> RoundAction(RoundIcon.STOP, BroColors.Error, "Stop listening", onMic)
-                    input.isNotBlank() -> RoundAction(RoundIcon.SEND, BroColors.Accent, "Send message") { submit() }
-                    else -> RoundAction(RoundIcon.MIC, BroColors.Accent, "Talk to BRO", onMic)
+                Row(
+                    Modifier.fillMaxWidth().padding(start = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        statusLabel(vm.state, vm.partialText),
+                        modifier = Modifier.weight(1f),
+                        color = BroColors.TextSecondary, fontSize = 13.sp, maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                    )
+                    when {
+                        vm.state == BroState.LISTENING -> RoundAction(RoundIcon.STOP, BroColors.Error, "Stop listening", onMic)
+                        input.isNotBlank() -> RoundAction(RoundIcon.SEND, BroColors.Accent, "Send message") { submit() }
+                        else -> RoundAction(RoundIcon.MIC, BroColors.Accent, "Talk to BRO", onMic)
+                    }
                 }
             }
         }
