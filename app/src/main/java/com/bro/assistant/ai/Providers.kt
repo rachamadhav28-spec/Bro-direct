@@ -17,7 +17,7 @@ enum class Skill(val label: String) {
 }
 
 /**
- * The 6 free AI services BRO can use. Keys are typed in Settings and stored encrypted on the phone,
+ * The free AI services BRO can use. Keys are typed in Settings and stored encrypted on the phone,
  * never in the source code (this repository is public).
  */
 enum class Provider(
@@ -56,6 +56,18 @@ enum class Provider(
         "https://models.github.ai/inference/chat/completions",
         listOf("openai/gpt-4.1", "openai/gpt-4o-mini"),
         emptyList(), "strong GPT models, uses a GitHub token with Models access"
+    ),
+    CEREBRAS(
+        "cerebras", "Cerebras", "https://cloud.cerebras.ai/platform/",
+        "https://api.cerebras.ai/v1/chat/completions",
+        listOf("gpt-oss-120b", "qwen-3-235b-a22b-instruct-2507", "llama3.1-8b"),
+        emptyList(), "very fast answers, big free daily allowance"
+    ),
+    MISTRAL(
+        "mistral", "Mistral", "https://console.mistral.ai/api-keys",
+        "https://api.mistral.ai/v1/chat/completions",
+        listOf("mistral-small-latest", "open-mistral-nemo"),
+        listOf("mistral-large-latest", "mistral-small-latest"), "free Experiment plan, good all-rounder and coding"
     ),
     CLOUDFLARE(
         "cloudflare", "Cloudflare AI", "https://dash.cloudflare.com/profile/api-tokens",
@@ -173,11 +185,11 @@ object Router {
 
     // Best first. Order comes from what each free service is good at.
     private val order: Map<Skill, List<Provider>> = mapOf(
-        Skill.CODE to listOf(Provider.COLAB, Provider.OPENROUTER, Provider.GITHUB, Provider.NVIDIA, Provider.GEMINI, Provider.GROQ, Provider.CLOUDFLARE),
-        Skill.FAST to listOf(Provider.GROQ, Provider.GEMINI, Provider.NVIDIA, Provider.OPENROUTER, Provider.GITHUB, Provider.CLOUDFLARE, Provider.COLAB),
-        Skill.LONG to listOf(Provider.GEMINI, Provider.OPENROUTER, Provider.NVIDIA, Provider.GITHUB, Provider.GROQ, Provider.CLOUDFLARE, Provider.COLAB),
-        Skill.REASON to listOf(Provider.NVIDIA, Provider.GEMINI, Provider.GROQ, Provider.GITHUB, Provider.OPENROUTER, Provider.CLOUDFLARE, Provider.COLAB),
-        Skill.GENERAL to listOf(Provider.GROQ, Provider.GEMINI, Provider.NVIDIA, Provider.GITHUB, Provider.OPENROUTER, Provider.CLOUDFLARE, Provider.COLAB)
+        Skill.CODE to listOf(Provider.COLAB, Provider.OPENROUTER, Provider.MISTRAL, Provider.GITHUB, Provider.NVIDIA, Provider.GEMINI, Provider.CEREBRAS, Provider.GROQ, Provider.CLOUDFLARE),
+        Skill.FAST to listOf(Provider.CEREBRAS, Provider.GROQ, Provider.GEMINI, Provider.MISTRAL, Provider.NVIDIA, Provider.OPENROUTER, Provider.GITHUB, Provider.CLOUDFLARE, Provider.COLAB),
+        Skill.LONG to listOf(Provider.GEMINI, Provider.OPENROUTER, Provider.MISTRAL, Provider.NVIDIA, Provider.GITHUB, Provider.CEREBRAS, Provider.GROQ, Provider.CLOUDFLARE, Provider.COLAB),
+        Skill.REASON to listOf(Provider.NVIDIA, Provider.GEMINI, Provider.CEREBRAS, Provider.MISTRAL, Provider.GROQ, Provider.GITHUB, Provider.OPENROUTER, Provider.CLOUDFLARE, Provider.COLAB),
+        Skill.GENERAL to listOf(Provider.GROQ, Provider.CEREBRAS, Provider.GEMINI, Provider.MISTRAL, Provider.NVIDIA, Provider.GITHUB, Provider.OPENROUTER, Provider.CLOUDFLARE, Provider.COLAB)
     )
 
     // a provider that said "too many requests" rests for a minute
