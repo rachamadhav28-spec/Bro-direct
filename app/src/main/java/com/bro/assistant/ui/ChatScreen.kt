@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -229,17 +230,26 @@ fun ChatScreen(
         // ── Composer: a rounded card. Text on top; underneath, BRO's status on the left and one button on the right
         //    (Mic when empty, Send when typing, Stop while listening) ──
         Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
-            val shape = RoundedCornerShape(24.dp)
+            val shape = RoundedCornerShape(28.dp)
+            var composerFocused by remember { mutableStateOf(false) }
+            val glow = breathing(1800)
+            val lit = composerFocused || input.isNotBlank() || vm.state == BroState.LISTENING
+            val edge = when {
+                vm.state == BroState.LISTENING -> Brush.linearGradient(listOf(BroColors.Listening.copy(alpha = 0.5f + 0.5f * glow), BroColors.Accent))
+                lit -> Brush.linearGradient(listOf(BroColors.Accent.copy(alpha = 0.55f + 0.45f * glow), Color(0xFFD8CCFF).copy(alpha = 0.55f + 0.45f * glow)))
+                else -> Brush.linearGradient(listOf(BroColors.Outline, BroColors.Outline))
+            }
             Column(
                 Modifier.widthIn(max = 760.dp).fillMaxWidth()
                     .clip(shape).background(BroColors.Panel)
-                    .border(1.dp, BroColors.Outline, shape)
+                    .border(if (lit) 1.5.dp else 1.dp, edge, shape)
                     .padding(start = 8.dp, end = 8.dp, top = 6.dp, bottom = 8.dp)
             ) {
                 TextField(
                     value = input,
                     onValueChange = { input = it },
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
+                        .onFocusChanged { composerFocused = it.isFocused },
                     placeholder = { Text("Message BRO", color = BroColors.TextSecondary) },
                     maxLines = 6,
                     colors = TextFieldDefaults.colors(

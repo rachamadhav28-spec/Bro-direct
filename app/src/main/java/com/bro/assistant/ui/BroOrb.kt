@@ -17,6 +17,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate as dsRotate
 import com.bro.assistant.BroState
 import com.bro.assistant.BuildConfig
 import com.bro.assistant.ui.theme.BroColors
@@ -31,7 +34,8 @@ import kotlin.math.sqrt
 @Composable
 fun BroOrb(state: BroState, modifier: Modifier = Modifier) {
     // Every new build gets its own idle colour, so you can see an update landed.
-    val accent = remember { Color.hsv(((BuildConfig.BUILD_NUMBER * 47) % 360).toFloat(), 0.85f, 1f) }
+    // Nova violet; the build number nudges the hue a little so you can still see an update landed.
+    val accent = remember { Color.hsv(255f + (BuildConfig.BUILD_NUMBER * 7) % 50, 0.55f, 1f) }
     val targetColor = when (state) {
         BroState.IDLE -> accent.copy(alpha = 0.85f)
         BroState.LISTENING -> BroColors.Listening
@@ -118,5 +122,27 @@ fun BroOrb(state: BroState, modifier: Modifier = Modifier) {
                 center = Offset(c.x + q[0] * r, c.y + q[1] * r)
             )
         }
+
+        // Nova: a thin ring with a small moon, and the four-point star in the middle
+        val ringR = r * 1.12f
+        drawCircle(color.copy(alpha = 0.28f), radius = ringR, center = c, style = Stroke(width = unit * 0.004f))
+        dsRotate(spin * 3f, c) {
+            drawCircle(Color.White.copy(alpha = 0.9f), radius = unit * 0.014f, center = Offset(c.x, c.y - ringR))
+        }
+        val u = (r * 0.30f / 22.04f) * (1f + amplitude * 0.8f * sin(pulse * 3.1416f))
+        fun pt(x: Float, y: Float) = Offset(c.x + x * u, c.y + y * u)
+        val star = Path().apply {
+            moveTo(pt(0f, -22.04f).x, pt(0f, -22.04f).y)
+            cubicTo(pt(1.16f, -8.12f).x, pt(1.16f, -8.12f).y, pt(8.12f, -1.16f).x, pt(8.12f, -1.16f).y, pt(22.04f, 0f).x, pt(22.04f, 0f).y)
+            cubicTo(pt(8.12f, 1.16f).x, pt(8.12f, 1.16f).y, pt(1.16f, 8.12f).x, pt(1.16f, 8.12f).y, pt(0f, 22.04f).x, pt(0f, 22.04f).y)
+            cubicTo(pt(-1.16f, 8.12f).x, pt(-1.16f, 8.12f).y, pt(-8.12f, 1.16f).x, pt(-8.12f, 1.16f).y, pt(-22.04f, 0f).x, pt(-22.04f, 0f).y)
+            cubicTo(pt(-8.12f, -1.16f).x, pt(-8.12f, -1.16f).y, pt(-1.16f, -8.12f).x, pt(-1.16f, -8.12f).y, pt(0f, -22.04f).x, pt(0f, -22.04f).y)
+            close()
+        }
+        drawCircle(
+            brush = Brush.radialGradient(listOf(color.copy(alpha = 0.55f), Color.Transparent), center = c, radius = r * 0.5f),
+            radius = r * 0.5f, center = c
+        )
+        drawPath(star, Brush.linearGradient(listOf(Color.White, lerp(color, Color.White, 0.55f)), start = pt(-22f, -22f), end = pt(22f, 22f)))
     }
 }

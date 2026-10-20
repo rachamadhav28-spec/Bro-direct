@@ -42,6 +42,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate as dsRotate
+import androidx.compose.ui.graphics.drawscope.scale as dsScale
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -166,7 +168,7 @@ fun BroLogo(size: androidx.compose.ui.unit.Dp, animate: Boolean = true) {
         // orbit ring
         drawCircle(violet.copy(alpha = 0.35f), radius = 25f * k, center = c, style = Stroke(width = 1.2f * k))
         // moon
-        androidx.compose.ui.graphics.drawscope.rotate(if (animate) spin else 0f, c) {
+        dsRotate(if (animate) spin else 0f, c) {
             drawCircle(lilac, radius = 2.6f * k, center = Offset(54f * k, 29f * k))
         }
         // star
@@ -178,7 +180,7 @@ fun BroLogo(size: androidx.compose.ui.unit.Dp, animate: Boolean = true) {
             cubicTo(45.88f * k, 52.84f * k, 52.84f * k, 45.88f * k, 54f * k, 31.96f * k)
             close()
         }
-        androidx.compose.ui.graphics.drawscope.scale(if (animate) breathe else 1f, c) {
+        dsScale(if (animate) breathe else 1f, c) {
             drawPath(star, Brush.linearGradient(listOf(Color.White, Color(0xFFB9A4FF)), start = Offset(36f * k, 36f * k), end = Offset(72f * k, 72f * k)))
         }
         // twinkle
