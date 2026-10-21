@@ -17,46 +17,53 @@ object BroColors {
     private val dark: Boolean get() = ThemeState.dark
     private fun pick(d: Long, l: Long) = Color(if (dark) d else l)
 
-    val Background: Color get() = pick(0xFF120B2A, 0xFFFAF9F5)
-    val Panel: Color get() = pick(0xFF1B1238, 0xFFFFFFFF)
+    val Background: Color get() = pick(0xFF0A0715, 0xFFF8F6FD)
+    val Panel: Color get() = pick(0xFF150F28, 0xFFFFFFFF)
     /** The colour of buttons, links and highlights. Darkened on the light theme so text in it stays readable. */
     val Accent: Color get() = if (dark) ThemeState.primary else ThemeState.readableOnLight(ThemeState.primary)
     val AccentSoft: Color get() = Accent.copy(alpha = if (dark) 0.16f else 0.12f)
-    val UserBubble: Color get() = pick(0xFF2A1B57, 0xFFEFECE3)
-    val BroBubble: Color get() = pick(0xFF160E30, 0xFFFAF9F5)
+    val UserBubble: Color get() = pick(0xFF271C4D, 0xFFEBE6F8)
+    val BroBubble: Color get() = pick(0xFF110B22, 0xFFF8F6FD)
     val Listening = Color(0xFF3DDC84)
-    val Thinking: Color get() = pick(0xFFB388FF, 0xFF7C4DFF)
+    val Thinking: Color get() = pick(0xFFB9A4FF, 0xFF6A45E0)
     val Executing: Color get() = pick(0xFFFFA726, 0xFFE65100)
     val Success: Color get() = pick(0xFF66BB6A, 0xFF2E7D32)
     val Error: Color get() = pick(0xFFEF5350, 0xFFC62828)
 
     // Text passes 4.5:1 contrast on its background in both themes
-    val TextPrimary: Color get() = pick(0xFFEEEAFF, 0xFF1F1E1D)
-    val TextSecondary: Color get() = pick(0xFF9C94C4, 0xFF65635C)
-    val Outline: Color get() = pick(0xFF352866, 0xFFE3E0D6)
-    val Surface2: Color get() = pick(0xFF160E30, 0xFFF3F1EA)
+    val TextPrimary: Color get() = pick(0xFFF1EEFF, 0xFF1B1730)
+    val TextSecondary: Color get() = pick(0xFFA8A0CC, 0xFF5E5878)
+    val Outline: Color get() = pick(0xFF2B2250, 0xFFDDD6EE)
+    val Surface2: Color get() = pick(0xFF110B22, 0xFFF1EEF9)
     /** Code blocks are dark in both themes (like a terminal). */
     val CodeBg = Color(0xFF0F1115)
     val CodeText = Color(0xFFE6EDF3)
 }
 
 /** One spacing scale (8dp grid) used everywhere. */
-object Space { val xs = 4.dp; val s = 8.dp; val m = 16.dp; val l = 24.dp; val xl = 32.dp }
+object Space { val xxs = 2.dp; val xs = 4.dp; val s = 8.dp; val m = 16.dp; val l = 24.dp; val xl = 32.dp; val xxl = 48.dp }
 
+/** Type scale. Sizes are in sp, so they follow the phone's font size setting. */
 private val BroTypography = Typography(
-    headlineMedium = TextStyle(fontSize = 26.sp, lineHeight = 32.sp, fontWeight = FontWeight.Bold),
+    displaySmall = TextStyle(fontSize = 34.sp, lineHeight = 40.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp),
+    headlineMedium = TextStyle(fontSize = 26.sp, lineHeight = 32.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.2).sp),
     titleLarge = TextStyle(fontSize = 22.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold),
     titleMedium = TextStyle(fontSize = 16.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold),
+    titleSmall = TextStyle(fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold),
     bodyLarge = TextStyle(fontSize = 16.sp, lineHeight = 24.sp),
     bodyMedium = TextStyle(fontSize = 14.sp, lineHeight = 20.sp),
     bodySmall = TextStyle(fontSize = 12.sp, lineHeight = 16.sp),
-    labelLarge = TextStyle(fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.Medium)
+    labelLarge = TextStyle(fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.1.sp),
+    labelMedium = TextStyle(fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.3.sp),
+    labelSmall = TextStyle(fontSize = 11.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.4.sp)
 )
 
 private val BroShapes = Shapes(
-    small = RoundedCornerShape(10.dp),
-    medium = RoundedCornerShape(16.dp),
-    large = RoundedCornerShape(24.dp)
+    extraSmall = RoundedCornerShape(BroRadius.xs),
+    small = RoundedCornerShape(BroRadius.s),
+    medium = RoundedCornerShape(BroRadius.m),
+    large = RoundedCornerShape(BroRadius.l),
+    extraLarge = RoundedCornerShape(BroRadius.xl)
 )
 
 @Composable

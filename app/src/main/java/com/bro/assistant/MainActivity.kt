@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.fragment.app.FragmentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -43,6 +44,9 @@ private data class PermDialog(
     val positive: String,
     val onPositive: () -> Unit
 )
+
+/** True once the opening splash has played in this app process. */
+private var splashPlayed = false
 
 class MainActivity : FragmentActivity() {
 
@@ -133,7 +137,23 @@ class MainActivity : FragmentActivity() {
             onPermissionResult(granted)
         }
 
+    override fun onPostCreate(savedInstanceState: Bundle?) {
+        super.onPostCreate(savedInstanceState)
+        // the cinematic opening plays once per app start (not again after a rotation), on top of the app while it loads
+        if (splashPlayed) return
+        splashPlayed = true
+        val reduce = try {
+            android.provider.Settings.Global.getFloat(contentResolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
+        } catch (_: Exception) { false }
+        val overlay = androidx.compose.ui.platform.ComposeView(this)
+        overlay.setContent {
+            com.bro.assistant.ui.CinematicSplash(reduceMotion = reduce) { (overlay.parent as? android.view.ViewGroup)?.removeView(overlay) }
+        }
+        addContentView(overlay, android.view.ViewGroup.LayoutParams(android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.MATCH_PARENT))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         val crashPrefs = getSharedPreferences("bro_crash", MODE_PRIVATE)

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The app's normal window. -->
+    <style name="Theme.Bro" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/bro_midnight</item>
+    </style>
+
+    <!-- The system splash shown for a moment while BRO starts: midnight with the orb. The in-app cinematic splash continues from it. -->
+    <style name="Theme.Bro.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/bro_midnight</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.Bro</item>
+    </style>
+</resources>

@@ -42,6 +42,7 @@ object ThemeState {
 
     class Preset(val name: String, val a: Long, val b: Long)
     val presets = listOf(
+        Preset("Cinematic", 0xFF9B8CFF, 0xFF4FD8E8),
         Preset("Nova", 0xFFA78BFA, 0xFFD8CCFF),
         Preset("Signal", 0xFF55D6C6, 0xFF9B8CFF),
         Preset("Clay", 0xFFD97757, 0xFFE0A458),

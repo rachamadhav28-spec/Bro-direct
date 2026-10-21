@@ -242,7 +242,7 @@ fun ChatScreen(
             }
             Column(
                 Modifier.widthIn(max = 760.dp).fillMaxWidth()
-                    .clip(shape).background(BroColors.Panel)
+                    .clip(shape).background(com.bro.assistant.ui.theme.BroGlass.fill(), shape)
                     .border(if (lit) 1.5.dp else 1.dp, edge, shape)
                     .padding(start = 8.dp, end = 8.dp, top = 6.dp, bottom = 8.dp)
             ) {

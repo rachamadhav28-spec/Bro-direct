@@ -177,7 +177,6 @@ class BubbleService : Service() {
         private var t = 0L
         private var running = false
         private var shown = Color.CYAN
-        private val palette = IntArray(100) { i -> Color.HSVToColor(floatArrayOf(hueFor(i), 0.85f, 1f)) }
 
         private val tick = object : Runnable {
             override fun run() {
@@ -192,11 +191,11 @@ class BubbleService : Service() {
         fun stop() { running = false; handler.removeCallbacks(tick) }
 
         private fun target(): Int = when (BubbleBus.state) {
-            BroState.LISTENING -> 0xFF9C27FF.toInt()            // purple
-            BroState.THINKING, BroState.EXECUTING -> 0xFFFF9800.toInt() // orange
-            BroState.SUCCESS -> 0xFF22DD55.toInt()              // green
-            BroState.ERROR -> 0xFFFF2D2D.toInt()                // red
-            else -> palette[((t / 600) % 100).toInt()]          // 100 colours, one every 0.6 s
+            BroState.LISTENING -> 0xFF4FD8E8.toInt()            // cyan
+            BroState.THINKING, BroState.EXECUTING -> 0xFFFFB74D.toInt() // amber
+            BroState.SUCCESS -> 0xFF3DDC84.toInt()              // green
+            BroState.ERROR -> 0xFFFF5252.toInt()                // red
+            else -> blend(0xFF7C5CFF.toInt(), 0xFFB9A4FF.toInt(), (0.5f + 0.5f * sin(t / 2600.0 * 2 * Math.PI)).toFloat()) // violet, slowly breathing to lilac
         }
 
         override fun onDraw(c: Canvas) {
@@ -207,19 +206,43 @@ class BubbleService : Service() {
             val speed = if (s == BroState.LISTENING) 3.2 else if (s == BroState.THINKING || s == BroState.EXECUTING) 2.4 else 1.0
             val pulse = (0.5 + 0.5 * sin(t / 1000.0 * speed * 2 * Math.PI)).toFloat()
             val cx = width / 2f; val cy = height / 2f
-            val r = width / 2f * (0.62f + 0.12f * pulse)
-            paint.shader = RadialGradient(cx, cy, width / 2f, intArrayOf(withAlpha(shown, 255), withAlpha(shown, 150), withAlpha(shown, 0)), floatArrayOf(0.45f, 0.7f, 1f), Shader.TileMode.CLAMP)
-            c.drawCircle(cx, cy, width / 2f, paint)
-            paint.shader = null
-            paint.color = shown
+            val half = width / 2f
+            val r = half * (0.50f + 0.06f * pulse)
+            val cyan = 0xFF4FD8E8.toInt()
+            // soft halo
+            paint.style = Paint.Style.FILL
+            paint.shader = RadialGradient(cx, cy, half, intArrayOf(withAlpha(shown, 120), withAlpha(shown, 40), withAlpha(shown, 0)), floatArrayOf(0.35f, 0.7f, 1f), Shader.TileMode.CLAMP)
+            c.drawCircle(cx, cy, half, paint)
+            // glass sphere, lit from the upper left
+            paint.shader = RadialGradient(
+                cx - r * 0.35f, cy - r * 0.4f, r * 1.6f,
+                intArrayOf(blend(shown, Color.WHITE, 0.55f), shown, blend(shown, 0xFF0A0715.toInt(), 0.8f)),
+                floatArrayOf(0f, 0.5f, 1f), Shader.TileMode.CLAMP
+            )
             c.drawCircle(cx, cy, r, paint)
+            paint.shader = null
+            // cyan rim light, lower right
+            paint.style = Paint.Style.STROKE
+            paint.strokeCap = Paint.Cap.ROUND
+            paint.strokeWidth = r * 0.07f
+            paint.color = withAlpha(cyan, 220)
+            val rim = android.graphics.RectF(cx - r + paint.strokeWidth / 2, cy - r + paint.strokeWidth / 2, cx + r - paint.strokeWidth / 2, cy + r - paint.strokeWidth / 2)
+            c.drawArc(rim, 0f, 80f, false, paint)
+            // glass edge
+            paint.strokeWidth = maxOf(1f, r * 0.025f)
+            paint.color = Color.argb(70, 255, 255, 255)
+            c.drawCircle(cx, cy, r, paint)
+            // highlight, upper left
+            paint.strokeWidth = r * 0.08f
+            paint.color = Color.argb(150, 255, 255, 255)
+            c.drawArc(android.graphics.RectF(cx - r * 0.78f, cy - r * 0.78f, cx + r * 0.78f, cy + r * 0.78f), 198f, 52f, false, paint)
+            // listening: a thin white ring around the orb
             if (BubbleBus.listening) {
-                paint.style = Paint.Style.STROKE; paint.strokeWidth = width * 0.045f; paint.color = Color.WHITE
-                c.drawCircle(cx, cy, width / 2f - paint.strokeWidth, paint)
-                paint.style = Paint.Style.FILL
+                paint.strokeWidth = width * 0.03f; paint.color = Color.WHITE
+                c.drawCircle(cx, cy, half - paint.strokeWidth, paint)
             }
-            paint.color = Color.argb(110, 255, 255, 255)
-            c.drawCircle(cx - r * 0.28f, cy - r * 0.3f, r * 0.28f, paint)
+            paint.style = Paint.Style.FILL
+            paint.strokeCap = Paint.Cap.BUTT
         }
 
         private fun withAlpha(c: Int, a: Int) = Color.argb(a, Color.red(c), Color.green(c), Color.blue(c))

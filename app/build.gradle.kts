@@ -58,6 +58,7 @@ android {
 
 dependencies {
     implementation("androidx.core:core-ktx:1.15.0")
+    implementation("androidx.core:core-splashscreen:1.0.1") // system splash on every Android version
     implementation("com.google.android.gms:play-services-auth:21.2.0") // Google account picker for "Sign in with Gmail"
     implementation("androidx.biometric:biometric:1.1.0") // fingerprint / screen-lock for the BRO app lock
     // on-device language model (runs fully offline once a model file is installed)

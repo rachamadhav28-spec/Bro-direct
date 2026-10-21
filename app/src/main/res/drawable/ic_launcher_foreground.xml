@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- BRO "Signal hex" mark: hexagon badge, a bold B and two sound waves -->
+<!-- BRO glass orb: halo, orbit ring, sphere, cyan rim light, glass edge, highlight, front of the ring.
+     Everything stays inside the 66dp adaptive-icon safe zone. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
@@ -7,36 +8,73 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <path
-        android:pathData="M54,24 L80,39 L80,69 L54,84 L28,69 L28,39 Z"
-        android:strokeWidth="4.5"
-        android:strokeLineJoin="round">
-        <aapt:attr name="android:strokeColor">
-            <gradient
-                android:startX="28" android:startY="24"
-                android:endX="80" android:endY="84"
-                android:type="linear">
-                <item android:color="#FF55D6C6" android:offset="0" />
-                <item android:color="#FF9B8CFF" android:offset="1" />
+    <!-- halo -->
+    <path android:pathData="M54,54m-34,0a34,34 0,1 1,68 0a34,34 0,1 1,-68 0">
+        <aapt:attr name="android:fillColor">
+            <gradient android:centerX="54" android:centerY="54" android:gradientRadius="34" android:type="radial">
+                <item android:color="#557C5CFF" android:offset="0" />
+                <item android:color="#007C5CFF" android:offset="1" />
             </gradient>
         </aapt:attr>
     </path>
 
-    <path
-        android:pathData="M38,41 L38,67 M38,41 L46,41 Q53,41 53,47 Q53,54 46,54 L38,54 M38,54 L47,54 Q55,54 55,60.5 Q55,67 47,67 L38,67"
-        android:strokeColor="#FFE8EDF7"
-        android:strokeWidth="5"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round" />
+    <!-- back of the orbit ring -->
+    <group android:pivotX="54" android:pivotY="54" android:rotation="-22">
+        <path
+            android:pathData="M24.3,54a29.7,8.4 0,1 0,59.4 0a29.7,8.4 0,1 0,-59.4 0"
+            android:strokeWidth="1.4">
+            <aapt:attr name="android:strokeColor">
+                <gradient android:startX="24" android:startY="54" android:endX="84" android:endY="54" android:type="linear">
+                    <item android:color="#734FD8E8" android:offset="0" />
+                    <item android:color="#737C5CFF" android:offset="1" />
+                </gradient>
+            </aapt:attr>
+        </path>
+    </group>
 
-    <path
-        android:pathData="M60,46 Q65,54 60,62"
-        android:strokeColor="#FF55D6C6"
-        android:strokeWidth="3.4"
-        android:strokeLineCap="round" />
-    <path
-        android:pathData="M66,41 Q74,54 66,67"
-        android:strokeColor="#FF9B8CFF"
-        android:strokeWidth="3.4"
-        android:strokeLineCap="round" />
+    <!-- sphere -->
+    <path android:pathData="M54,54m-22,0a22,22 0,1 1,44 0a22,22 0,1 1,-44 0">
+        <aapt:attr name="android:fillColor">
+            <gradient android:centerX="46.3" android:centerY="45.2" android:gradientRadius="35" android:type="radial">
+                <item android:color="#FFE4DAFF" android:offset="0" />
+                <item android:color="#FF7C5CFF" android:offset="0.5" />
+                <item android:color="#FF1A1038" android:offset="1" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- cyan rim light from the lower right -->
+    <path android:pathData="M54,54m-20.9,0a20.9,20.9 0,1 1,41.8 0a20.9,20.9 0,1 1,-41.8 0" android:strokeWidth="1.6">
+        <aapt:attr name="android:strokeColor">
+            <gradient android:centerX="54" android:centerY="54" android:type="sweep">
+                <item android:color="#8C4FD8E8" android:offset="0" />
+                <item android:color="#F24FD8E8" android:offset="0.12" />
+                <item android:color="#004FD8E8" android:offset="0.32" />
+                <item android:color="#004FD8E8" android:offset="0.85" />
+                <item android:color="#8C4FD8E8" android:offset="1" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- glass edge -->
+    <path android:pathData="M54,54m-21.6,0a21.6,21.6 0,1 1,43.2 0a21.6,21.6 0,1 1,-43.2 0"
+        android:strokeColor="#33FFFFFF" android:strokeWidth="0.7" />
+
+    <!-- highlight, upper left -->
+    <path android:pathData="M39.3,45.5A17,17 0 0 1 48.2,38"
+        android:strokeColor="#99FFFFFF" android:strokeWidth="2.2" android:strokeLineCap="round" />
+
+    <!-- front of the orbit ring -->
+    <group android:pivotX="54" android:pivotY="54" android:rotation="-22">
+        <path
+            android:pathData="M24.3,54a29.7,8.4 0,0 0,59.4 0"
+            android:strokeWidth="1.6" android:strokeLineCap="round">
+            <aapt:attr name="android:strokeColor">
+                <gradient android:startX="24" android:startY="54" android:endX="84" android:endY="54" android:type="linear">
+                    <item android:color="#F24FD8E8" android:offset="0" />
+                    <item android:color="#F27C5CFF" android:offset="1" />
+                </gradient>
+            </aapt:attr>
+        </path>
+    </group>
 </vector>
