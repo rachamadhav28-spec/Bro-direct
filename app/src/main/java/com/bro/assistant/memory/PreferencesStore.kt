@@ -22,11 +22,12 @@ class PreferencesStore(context: Context) {
     fun providerKey(id: String): String {
         val stored = str("pk_$id", "")
         if (stored.isBlank()) return ""
-        return com.bro.assistant.security.SecretBox.decrypt(stored) ?: ""
+        // a key never contains spaces or line breaks; a pasted key that wrapped onto two lines is repaired here
+        return (com.bro.assistant.security.SecretBox.decrypt(stored) ?: "").filter { !it.isWhitespace() }
     }
 
     fun setProviderKey(id: String, value: String) {
-        val t = value.trim()
+        val t = value.filter { !it.isWhitespace() }
         sp.edit().putString("pk_$id", if (t.isEmpty()) "" else com.bro.assistant.security.SecretBox.encrypt(t)).apply()
     }
 

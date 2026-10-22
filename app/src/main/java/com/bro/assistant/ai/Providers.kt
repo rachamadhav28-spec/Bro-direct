@@ -99,6 +99,9 @@ object MultiAi {
     ): String {
         val key = prefs.providerKey(p.id)
         if (key.isBlank()) throw AiException(401, "no key for ${p.label}")
+        if (p == Provider.CLAUDE && !key.startsWith("sk-ant-")) {
+            throw IllegalArgumentException("The key in the Claude box is not a Claude key. Claude keys start with sk-ant-. Put other keys in their own boxes.")
+        }
         val remembered = prefs.providerModel(p.id)
         val models = buildList {
             if (skill == Skill.CODE) addAll(p.code)
