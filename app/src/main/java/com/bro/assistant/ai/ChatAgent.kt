@@ -96,7 +96,7 @@ Plain text, terse.
         val prompt = if (plan.isBlank()) user else user + "\n\n[Your private working notes. Use them, but never show or mention them:\n" + plan + "\n]"
         val grounded = fresh.containsMatchIn(question)
         val text = try {
-            if (prefs.apiKey.isNotBlank() && !LocalLlm.willUse(prefs)) ai.chatStream(SYSTEM, prompt, grounded, onPartial)
+            if (prefs.apiKey.isNotBlank() && !LocalLlm.willUse(prefs) && prefs.providerKey("claude").isBlank()) ai.chatStream(SYSTEM, prompt, grounded, onPartial)
             else ai.generate(SYSTEM, prompt, json = false, timeoutMs = 90000, skill = Skill.GENERAL)
         } catch (e: CancellationException) {
             throw e

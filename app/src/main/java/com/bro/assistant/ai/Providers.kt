@@ -29,6 +29,13 @@ enum class Provider(
     val code: List<String>,
     val strong: String
 ) {
+    CLAUDE(
+        "claude", "Claude (Anthropic)", "https://console.anthropic.com/settings/keys",
+        "https://api.anthropic.com/v1/messages",
+        listOf("claude-haiku-5-5", "claude-sonnet-5-5"),
+        listOf("claude-sonnet-5-5", "claude-haiku-5-5"),
+        "best answers and code; paid (you buy API credit, key starts sk-ant-)"
+    ),
     GEMINI(
         "gemini", "Gemini", "https://aistudio.google.com/apikey", "",
         emptyList(), emptyList(), "long text, images, big context"
@@ -143,21 +150,37 @@ object MultiAi {
             conn.readTimeout = timeoutMs
             conn.doOutput = true
             conn.setRequestProperty("Content-Type", "application/json")
-            conn.setRequestProperty("Authorization", "Bearer $token")
+            if (p == Provider.CLAUDE) {
+                // Anthropic's own Messages API: the key goes in x-api-key, not as a Bearer token
+                conn.setRequestProperty("x-api-key", token)
+                conn.setRequestProperty("anthropic-version", "2023-06-01")
+            } else {
+                conn.setRequestProperty("Authorization", "Bearer $token")
+            }
             if (p == Provider.OPENROUTER) {
                 conn.setRequestProperty("HTTP-Referer", "https://github.com/rachamadhav28-spec")
                 conn.setRequestProperty("X-Title", "BRO")
             }
-            val body = JSONObject()
-                .put("model", model)
-                .put(
-                    "messages",
-                    JSONArray()
-                        .put(JSONObject().put("role", "system").put("content", system))
-                        .put(JSONObject().put("role", "user").put("content", user))
-                )
-                .put("temperature", if (json) 0.2 else 0.3)
-                .put("max_tokens", if (timeoutMs > 60000) 8000 else if (json) 2048 else 4096)
+            val maxTokens = if (timeoutMs > 60000) 8000 else if (json) 2048 else 4096
+            val body = if (p == Provider.CLAUDE) {
+                JSONObject()
+                    .put("model", model)
+                    .put("max_tokens", maxTokens)
+                    .put("temperature", if (json) 0.2 else 0.3)
+                    .put("system", system)
+                    .put("messages", JSONArray().put(JSONObject().put("role", "user").put("content", user)))
+            } else {
+                JSONObject()
+                    .put("model", model)
+                    .put(
+                        "messages",
+                        JSONArray()
+                            .put(JSONObject().put("role", "system").put("content", system))
+                            .put(JSONObject().put("role", "user").put("content", user))
+                    )
+                    .put("temperature", if (json) 0.2 else 0.3)
+                    .put("max_tokens", maxTokens)
+            }
             conn.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
 
             val code = conn.responseCode
@@ -169,9 +192,14 @@ object MultiAi {
                     JSONObject(text).getJSONObject("error").getString("message")
                 }.getOrDefault(text)).take(120)
             )
-            val content = JSONObject(text).getJSONArray("choices").getJSONObject(0)
-                .getJSONObject("message").optString("content", "")
-                .replace(Regex("(?s)<think>.*?</think>"), "").trim()
+            val raw = if (p == Provider.CLAUDE) {
+                // the answer is a list of blocks; join the text ones
+                val blocks = JSONObject(text).getJSONArray("content")
+                buildString { for (i in 0 until blocks.length()) append(blocks.getJSONObject(i).optString("text", "")) }
+            } else {
+                JSONObject(text).getJSONArray("choices").getJSONObject(0).getJSONObject("message").optString("content", "")
+            }
+            val content = raw.replace(Regex("(?s)<think>.*?</think>"), "").trim()
             if (content.isBlank()) throw AiException(502, "${p.label}; model=$model; empty answer")
             content
         } finally {
@@ -185,11 +213,11 @@ object Router {
 
     // Best first. Order comes from what each free service is good at.
     private val order: Map<Skill, List<Provider>> = mapOf(
-        Skill.CODE to listOf(Provider.COLAB, Provider.OPENROUTER, Provider.MISTRAL, Provider.GITHUB, Provider.NVIDIA, Provider.GEMINI, Provider.CEREBRAS, Provider.GROQ, Provider.CLOUDFLARE),
-        Skill.FAST to listOf(Provider.CEREBRAS, Provider.GROQ, Provider.GEMINI, Provider.MISTRAL, Provider.NVIDIA, Provider.OPENROUTER, Provider.GITHUB, Provider.CLOUDFLARE, Provider.COLAB),
-        Skill.LONG to listOf(Provider.GEMINI, Provider.OPENROUTER, Provider.MISTRAL, Provider.NVIDIA, Provider.GITHUB, Provider.CEREBRAS, Provider.GROQ, Provider.CLOUDFLARE, Provider.COLAB),
-        Skill.REASON to listOf(Provider.NVIDIA, Provider.GEMINI, Provider.CEREBRAS, Provider.MISTRAL, Provider.GROQ, Provider.GITHUB, Provider.OPENROUTER, Provider.CLOUDFLARE, Provider.COLAB),
-        Skill.GENERAL to listOf(Provider.GROQ, Provider.CEREBRAS, Provider.GEMINI, Provider.MISTRAL, Provider.NVIDIA, Provider.GITHUB, Provider.OPENROUTER, Provider.CLOUDFLARE, Provider.COLAB)
+        Skill.CODE to listOf(Provider.CLAUDE, Provider.COLAB, Provider.OPENROUTER, Provider.MISTRAL, Provider.GITHUB, Provider.NVIDIA, Provider.GEMINI, Provider.CEREBRAS, Provider.GROQ, Provider.CLOUDFLARE),
+        Skill.FAST to listOf(Provider.CEREBRAS, Provider.GROQ, Provider.GEMINI, Provider.MISTRAL, Provider.NVIDIA, Provider.OPENROUTER, Provider.GITHUB, Provider.CLOUDFLARE, Provider.COLAB, Provider.CLAUDE),
+        Skill.LONG to listOf(Provider.CLAUDE, Provider.GEMINI, Provider.OPENROUTER, Provider.MISTRAL, Provider.NVIDIA, Provider.GITHUB, Provider.CEREBRAS, Provider.GROQ, Provider.CLOUDFLARE, Provider.COLAB),
+        Skill.REASON to listOf(Provider.CLAUDE, Provider.NVIDIA, Provider.GEMINI, Provider.CEREBRAS, Provider.MISTRAL, Provider.GROQ, Provider.GITHUB, Provider.OPENROUTER, Provider.CLOUDFLARE, Provider.COLAB),
+        Skill.GENERAL to listOf(Provider.CLAUDE, Provider.GROQ, Provider.CEREBRAS, Provider.GEMINI, Provider.MISTRAL, Provider.NVIDIA, Provider.GITHUB, Provider.OPENROUTER, Provider.CLOUDFLARE, Provider.COLAB)
     )
 
     // a provider that said "too many requests" rests for a minute
